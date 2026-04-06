@@ -463,3 +463,53 @@ def pick_scheds(
                 sched_epjson[ep_obj_type][ep_obj_name] = epjson_objs[ep_obj_name]
 
     return sched_epjson
+
+
+def get_scheds(
+    room_names: Sequence[str], sched_categories: Sequence[str], cursor: PyODBCCursor
+) -> dict[str, epJSONObjs]:
+    """Get an epJSON of schedules given rooms and schedule categories.
+
+    This is a helper function that streamlines `read_scheds`, `convert_scheds` and
+    `pick_scheds` into a single function call.
+
+    Parameters
+    ----------
+    room_names : Sequence[str]
+        NCM room names of interest.
+    sched_categories : Sequence[str]
+        NCM schedule category column names of interest.
+    cursor : PyODBCCursor
+        Open cursor of the NCM activity database.
+
+    Returns
+    -------
+    dict[str, epJSONObjs]
+        An epJSON of schedules.
+    """
+    # get activity rows
+    cursor.execute("SELECT * FROM [activity]")
+    activity_rows = cursor.fetchall()
+
+    # read NCM schedule data
+    (
+        annual_sched_rows,
+        annual_weekly_sched_rows,
+        weekly_sched_rows,
+        daily_sched_rows,
+        sched_type_rows,
+    ) = read_scheds(activity_rows, cursor)
+
+    # convert NCM schedule data into an epJSON schedule library
+    sched_map, epjson_objs = convert_scheds(
+        annual_sched_rows,
+        annual_weekly_sched_rows,
+        weekly_sched_rows,
+        daily_sched_rows,
+        sched_type_rows,
+    )
+
+    # pick epJSON schedule objects given rooms and schedule categories
+    return pick_scheds(
+        room_names, sched_categories, sched_map, epjson_objs, activity_rows
+    )
