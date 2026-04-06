@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     import pyodbc
 
     type PyODBCRows = list[pyodbc.Row]
+    type PyODBCCursor = pyodbc.Cursor
     type SchedMap = dict[int, dict[str, set[str]]]
     type epJSONObjBody = dict[str, object]  # noqa: N816, PYI042
     type epJSONObjs = dict[str, epJSONObjBody]  # noqa: N816, PYI042
@@ -118,7 +119,7 @@ def _add_epjson_obj(
 
 
 def read_scheds(
-    activity_rows: PyODBCRows, cur: pyodbc.Cursor
+    activity_rows: PyODBCRows, cursor: PyODBCCursor
 ) -> tuple[PyODBCRows, PyODBCRows, PyODBCRows, PyODBCRows, PyODBCRows]:
     """Read NCM activity schedule data.
 
@@ -126,7 +127,7 @@ def read_scheds(
     ----------
     activity_rows : PyODBCRows
         Rows of the `[activity]` table.
-    cur : pyodbc.Cursor
+    cursor : PyODBCCursor
         Open cursor of the NCM activity database.
 
     Returns
@@ -141,8 +142,8 @@ def read_scheds(
     """
     # get schedule type rows
     query = "SELECT * FROM [schedules_type]"
-    cur.execute(query)
-    sched_type_rows = cur.fetchall()
+    cursor.execute(query)
+    sched_type_rows = cursor.fetchall()
 
     # get annual schedule ids used in the [activity] table
     annual_sched_ids = {
@@ -155,15 +156,15 @@ def read_scheds(
     query = (
         f"SELECT * FROM [annual_schedules] WHERE {_where_in2or(annual_sched_ids, 'ID')}"
     )
-    cur.execute(query)
-    annual_sched_rows = cur.fetchall()
+    cursor.execute(query)
+    annual_sched_rows = cursor.fetchall()
 
     # get annual weekly schedule rows
     # note that annual schedules work differently from weekly and daily schedules
     # as they have an indefinite number of segments
     query = f"SELECT * FROM [annual_weekly_schedules] WHERE {_where_in2or(annual_sched_ids, 'ANNUAL_SCHEDULE')}"
-    cur.execute(query)
-    annual_weekly_sched_rows = cur.fetchall()
+    cursor.execute(query)
+    annual_weekly_sched_rows = cursor.fetchall()
 
     # get weekly schedule ids used in the [annual_weekly_schedules] table
     weekly_sched_ids = {row.WEEKLY_SCHEDULE for row in annual_weekly_sched_rows}
@@ -172,8 +173,8 @@ def read_scheds(
     query = (
         f"SELECT * FROM [weekly_schedules] WHERE {_where_in2or(weekly_sched_ids, 'ID')}"
     )
-    cur.execute(query)
-    weekly_sched_rows = cur.fetchall()
+    cursor.execute(query)
+    weekly_sched_rows = cursor.fetchall()
 
     # get daily schedule ids used in the [weekly_schedules] table
     daily_sched_ids = {
@@ -186,8 +187,8 @@ def read_scheds(
     query = (
         f"SELECT * FROM [daily_schedules] WHERE {_where_in2or(daily_sched_ids, 'ID')}"
     )
-    cur.execute(query)
-    daily_sched_rows = cur.fetchall()
+    cursor.execute(query)
+    daily_sched_rows = cursor.fetchall()
 
     return (
         annual_sched_rows,
