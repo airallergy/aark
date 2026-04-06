@@ -1,0 +1,102 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aark"
+version = "0.1.0"
+description = "airallergy's research kit"
+authors = [{ name = "Cheng Cui", email = "cheng.cui.95@gmail.com" }]
+license = "BSD-3-Clause"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = ["pyodbc==5.*"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering",
+    "Typing :: Typed",
+]
+
+
+[project.urls]
+repository = "https://github.com/airallergy/aark"
+
+[dependency-groups]
+dev = ["mypy~=1.20", "pytest-cov==7.*", "pytest==9.*", "ruff==0.15.*"]
+
+[tool.ruff.lint]
+select = [
+    "B",
+    "C4",
+    "D",
+    "E",
+    "F",
+    "FLY",
+    "FURB",
+    "I",
+    "ISC",
+    "LOG",
+    "N",
+    "PERF",
+    "PGH",
+    "PIE",
+    "PL",
+    "PT",
+    "PYI",
+    "RET",
+    "RUF",
+    "SIM",
+    "SLOT",
+    "T20",
+    "TC",
+    "TID",
+    "TRY",
+    "UP",
+    "YTT",
+]
+ignore = [
+    "E266",
+    "E501",
+    "E741",
+    "PLR0912",
+    "PLR0913",
+    "PLR2004",
+    "PLW0603",
+    "RET505",
+    "RUF023",
+    "SIM300",
+    "TRY003",
+]
+
+[tool.ruff.lint.isort]
+split-on-trailing-comma = false
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D"]
+
+[tool.ruff.format]
+line-ending = "lf"
+skip-magic-trailing-comma = true
+
+[tool.mypy]
+files = ["aark", "tests"]
+namespace_packages = false
+enable_incomplete_feature = ["PreciseTupleTypes"]
+ignore_missing_imports = true
+strict = true
+
+[tool.pytest.ini_options]
+addopts = "--cov=aark"
+testpaths = ["tests"]
