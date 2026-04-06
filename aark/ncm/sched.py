@@ -417,31 +417,31 @@ def convert_scheds(  # noqa: PLR0915
 
 
 def pick_scheds(
-    activity_rows: PyODBCRows,
-    sched_map: SchedMap,
-    epjson_objs: epJSONObjs,
     room_names: Sequence[str],
     sched_categories: Sequence[str],
+    sched_map: SchedMap,
+    epjson_objs: epJSONObjs,
+    activity_rows: PyODBCRows,
 ) -> dict[str, epJSONObjs]:
     """Pick epJSON schedule objects given rooms and schedule categories.
 
     Parameters
     ----------
-    activity_rows : PyODBCRows
-        Rows of the `[activity]` table.
-    sched_map : SchedMap
-        Map of annual schedule ids to epJSON object names grouped by EP object type.
-    epjson_objs : epJSONObjs
-        Map of epJSON object names to epJSON object bodies.
     room_names : Sequence[str]
         NCM room names of interest.
     sched_categories : Sequence[str]
         NCM schedule categories of interest.
+    sched_map : SchedMap
+        Map of annual schedule ids to epJSON object names grouped by EP object type.
+    epjson_objs : epJSONObjs
+        Map of epJSON object names to epJSON object bodies.
+    activity_rows : PyODBCRows
+        Rows of the `[activity]` table.
 
     Returns
     -------
     dict[str, epJSONObjs]
-        An epJSON of picked schedules.
+        An epJSON of schedules.
     """
     annual_sched_ids = {
         getattr(row, column_name)
