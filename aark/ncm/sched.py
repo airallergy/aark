@@ -296,7 +296,7 @@ def convert_scheds(  # noqa: PLR0915
 
             sched_weeks.append(
                 {
-                    "sched_week_name": weekly_sched_id2name[
+                    "schedule_week_name": weekly_sched_id2name[
                         annual_weekly_sched_row.WEEKLY_SCHEDULE
                     ],
                     "start_month": -1,
@@ -330,8 +330,8 @@ def convert_scheds(  # noqa: PLR0915
 
         # create and add the epJSON `Schedule:Year` object
         epjson_obj_body = {
-            "sched_type_limits_name": sched_type_name,
-            "sched_weeks": sched_weeks,
+            "schedule_type_limits_name": sched_type_name,
+            "schedule_weeks": sched_weeks,
         }
         _add_epjson_obj(epjson_objs, annual_sched_name, epjson_obj_body)
 
@@ -341,19 +341,19 @@ def convert_scheds(  # noqa: PLR0915
 
         # create and add the epJSON `Schedule:Week:Daily` object
         epjson_obj_body = {
-            f"{day_type.lower()}_sched_day_name": daily_sched_id2name[
+            f"{day_type.lower()}_schedule_day_name": daily_sched_id2name[
                 getattr(weekly_sched_row, day_type)
             ]
             for day_type in WEEKLY_SCHED_DAY_TYPES
         }
         # TODO: customday1 and customday2 can probably be safely ignored
         #       but summerdesignday and winterdesignday need a better way to be handled
-        fallback_daily_sched_name = epjson_obj_body["holiday_sched_day_name"]
+        fallback_daily_sched_name = epjson_obj_body["holiday_schedule_day_name"]
         epjson_obj_body |= {
-            "summerdesignday_sched_day_name": fallback_daily_sched_name,
-            "winterdesignday_sched_day_name": fallback_daily_sched_name,
-            "customday1_sched_day_name": fallback_daily_sched_name,
-            "customday2_sched_day_name": fallback_daily_sched_name,
+            "summerdesignday_schedule_day_name": fallback_daily_sched_name,
+            "winterdesignday_schedule_day_name": fallback_daily_sched_name,
+            "customday1_schedule_day_name": fallback_daily_sched_name,
+            "customday2_schedule_day_name": fallback_daily_sched_name,
         }
         _add_epjson_obj(epjson_objs, weekly_sched_name, epjson_obj_body)
 
