@@ -485,8 +485,7 @@ def get_scheds(
         An epJSON of schedules.
     """
     # get activity rows
-    cursor.execute("SELECT * FROM [activity]")
-    activity_rows = cursor.fetchall()
+    activity_rows = _fetch_filter("activity", "NAME", room_names, cursor)
 
     # read NCM schedule data
     (
