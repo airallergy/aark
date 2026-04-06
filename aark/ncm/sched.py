@@ -9,7 +9,7 @@ import datetime
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Sequence
 
     import pyodbc
 
@@ -116,15 +116,15 @@ def _add_epjson_obj(
     epjson_objs.update({ep_obj_name: epjson_obj_body})
 
 
-def convert_scheds(  # noqa: PLR0915
+def read_scheds(  # noqa: PLR0915
     activity_rows: list[pyodbc.Row], cur: pyodbc.Cursor
 ) -> tuple[SchedMap, epJSONObjs]:
-    """Convert NCM activity schedules into epJSON schedule objects.
+    """Read NCM activity schedules converted into epJSON schedule objects.
 
     Parameters
     ----------
     activity_rows : list[pyodbc.Row]
-        Rows of interest from the `[activity]` table.
+        Rows of the `[activity]` table.
     cur : pyodbc.Cursor
         Open cursor of the NCM activity database.
 
@@ -372,3 +372,52 @@ def convert_scheds(  # noqa: PLR0915
         _add_epjson_obj(epjson_objs, daily_sched_name, epjson_obj_body)
 
     return sched_map, epjson_objs
+
+
+def pick_scheds(
+    activity_rows: list[pyodbc.Row],
+    sched_map: SchedMap,
+    epjson_objs: epJSONObjs,
+    room_names: Sequence[str],
+    sched_categories: Sequence[str],
+) -> dict[str, epJSONObjs]:
+    """Pick epJSON schedule objects given rooms and schedule categories.
+
+    Parameters
+    ----------
+    activity_rows : list[pyodbc.Row]
+        Rows of the `[activity]` table.
+    sched_map : SchedMap
+        Map of annual schedule ids to epJSON object names grouped by EP object type.
+    epjson_objs : epJSONObjs
+        Map of epJSON object names to epJSON object bodies.
+    room_names : Sequence[str]
+        NCM room names of interest.
+    sched_categories : Sequence[str]
+        NCM schedule categories of interest.
+
+    Returns
+    -------
+    dict[str, epJSONObjs]
+        An epJSON of picked schedules.
+    """
+    annual_sched_ids = {
+        getattr(row, column_name)
+        for row in activity_rows
+        if row.NAME in room_names
+        for column_name in sched_categories
+    }
+
+    sched_epjson: dict[str, epJSONObjs] = {
+        "ScheduleTypeLimits": {},
+        "Schedule:Day:Hourly": {},
+        "Schedule:Week:Daily": {},
+        "Schedule:Year": {},
+    }
+
+    for annual_sched_id in annual_sched_ids:
+        for ep_obj_type, ep_obj_names in sched_map[annual_sched_id].items():
+            for ep_obj_name in sorted(ep_obj_names):
+                sched_epjson[ep_obj_type][ep_obj_name] = epjson_objs[ep_obj_name]
+
+    return sched_epjson
