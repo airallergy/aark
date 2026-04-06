@@ -77,16 +77,23 @@ SCHED_TYPE_LIMITS_OBJS = {
 }
 
 
-def _where_in2or(values: Iterable[int], column_name: str) -> str:
-    """Build a SQL WHERE clause using OR comparisons for integer values.
+def _fetch_filter(
+    table_name: str,
+    column_name: str,
+    column_values: Iterable[object],
+    cursor: PyODBCCursor,
+) -> PyODBCRows:
+    """Fetch rows of a table filtered by values in a given column.
 
-    MDBTools does not support the IN operator, so this function creates a WHERE clause
-    that compares the target column against each value using the OR operator. For
-    instance, if the input values are [1, 2, 3] and the column name is "ID", this
-    function will return the clause `[ID] = 1 OR [ID] = 2 OR [ID] = 3`, which is
-    equivalent to the clause `IN (1, 2, 3)`.
+    NOTE: this fetch and filter approach is used instead of a SQL query with a WHERE
+    clause, because some ODBC driver apears to have a limit on the number of column
+    values to be filtered via WHERE.
     """
-    return " OR ".join(f"[{column_name}] = {item}" for item in values)
+    column_values = set(column_values)
+
+    cursor.execute(f"SELECT * FROM [{table_name}]")
+    rows = cursor.fetchall()
+    return [row for row in rows if getattr(row, column_name) in column_values]
 
 
 def _next_month_day(month: int, day: int) -> tuple[int, int]:
@@ -94,7 +101,6 @@ def _next_month_day(month: int, day: int) -> tuple[int, int]:
 
     NOTE: this function hardcodes a non-leap year.
     """
-    # assuming non-leap year
     date = datetime.date(2026, month, day) + datetime.timedelta(days=1)
     return date.month, date.day
 
@@ -141,8 +147,7 @@ def read_scheds(
         - rows of the `[schedules_type]` table.
     """
     # get schedule type rows
-    query = "SELECT * FROM [schedules_type]"
-    cursor.execute(query)
+    cursor.execute("SELECT * FROM [schedules_type]")
     sched_type_rows = cursor.fetchall()
 
     # get annual schedule ids used in the [activity] table
@@ -153,28 +158,24 @@ def read_scheds(
     }
 
     # get annual schedule rows
-    query = (
-        f"SELECT * FROM [annual_schedules] WHERE {_where_in2or(annual_sched_ids, 'ID')}"
+    annual_sched_rows = _fetch_filter(
+        "annual_schedules", "ID", annual_sched_ids, cursor
     )
-    cursor.execute(query)
-    annual_sched_rows = cursor.fetchall()
 
     # get annual weekly schedule rows
     # note that annual schedules work differently from weekly and daily schedules
     # as they have an indefinite number of segments
-    query = f"SELECT * FROM [annual_weekly_schedules] WHERE {_where_in2or(annual_sched_ids, 'ANNUAL_SCHEDULE')}"
-    cursor.execute(query)
-    annual_weekly_sched_rows = cursor.fetchall()
+    annual_weekly_sched_rows = _fetch_filter(
+        "annual_weekly_schedules", "ANNUAL_SCHEDULE", annual_sched_ids, cursor
+    )
 
     # get weekly schedule ids used in the [annual_weekly_schedules] table
     weekly_sched_ids = {row.WEEKLY_SCHEDULE for row in annual_weekly_sched_rows}
 
     # get weekly schedule rows
-    query = (
-        f"SELECT * FROM [weekly_schedules] WHERE {_where_in2or(weekly_sched_ids, 'ID')}"
+    weekly_sched_rows = _fetch_filter(
+        "weekly_schedules", "ID", weekly_sched_ids, cursor
     )
-    cursor.execute(query)
-    weekly_sched_rows = cursor.fetchall()
 
     # get daily schedule ids used in the [weekly_schedules] table
     daily_sched_ids = {
@@ -184,11 +185,7 @@ def read_scheds(
     }
 
     # get daily schedule rows
-    query = (
-        f"SELECT * FROM [daily_schedules] WHERE {_where_in2or(daily_sched_ids, 'ID')}"
-    )
-    cursor.execute(query)
-    daily_sched_rows = cursor.fetchall()
+    daily_sched_rows = _fetch_filter("daily_schedules", "ID", daily_sched_ids, cursor)
 
     return (
         annual_sched_rows,
