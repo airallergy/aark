@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
     import pyodbc
 
+    type PyODBCRows = list[pyodbc.Row]
     type SchedMap = dict[int, dict[str, set[str]]]
     type epJSONObjBody = dict[str, object]  # noqa: N816, PYI042
     type epJSONObjs = dict[str, epJSONObjBody]  # noqa: N816, PYI042
@@ -116,28 +117,32 @@ def _add_epjson_obj(
     epjson_objs.update({ep_obj_name: epjson_obj_body})
 
 
-def read_scheds(  # noqa: PLR0915
-    activity_rows: list[pyodbc.Row], cur: pyodbc.Cursor
-) -> tuple[SchedMap, epJSONObjs]:
-    """Read NCM activity schedules converted into epJSON schedule objects.
+def read_scheds(
+    activity_rows: PyODBCRows, cur: pyodbc.Cursor
+) -> tuple[PyODBCRows, PyODBCRows, PyODBCRows, PyODBCRows, PyODBCRows]:
+    """Read NCM activity schedule data.
 
     Parameters
     ----------
-    activity_rows : list[pyodbc.Row]
+    activity_rows : PyODBCRows
         Rows of the `[activity]` table.
     cur : pyodbc.Cursor
         Open cursor of the NCM activity database.
 
     Returns
     -------
-    tuple[SchedMap, epJSONObjs]
+    tuple[PyODBCRows, PyODBCRows, PyODBCRows, PyODBCRows, PyODBCRows]
         A tuple containing:
-        - a map of annual schedule ids to epJSON object names grouped by EP object type.
-        - a map of epJSON object names to epJSON object bodies.
+        - rows of the `[annual_schedules]` table.
+        - rows of the `[annual_weekly_schedules]` table.
+        - rows of the `[weekly_schedules]` table.
+        - rows of the `[daily_schedules]` table.
+        - rows of the `[schedules_type]` table.
     """
-    # -----------------------------------------------------------------------------
-    # 1) read annual, weekly and daily schedule data
-    # -----------------------------------------------------------------------------
+    # get schedule type rows
+    query = "SELECT * FROM [schedules_type]"
+    cur.execute(query)
+    sched_type_rows = cur.fetchall()
 
     # get annual schedule ids used in the [activity] table
     annual_sched_ids = {
@@ -184,9 +189,50 @@ def read_scheds(  # noqa: PLR0915
     cur.execute(query)
     daily_sched_rows = cur.fetchall()
 
+    return (
+        annual_sched_rows,
+        annual_weekly_sched_rows,
+        weekly_sched_rows,
+        daily_sched_rows,
+        sched_type_rows,
+    )
+
+
+def convert_scheds(  # noqa: PLR0915
+    annual_sched_rows: PyODBCRows,
+    annual_weekly_sched_rows: PyODBCRows,
+    weekly_sched_rows: PyODBCRows,
+    daily_sched_rows: PyODBCRows,
+    sched_type_rows: PyODBCRows,
+) -> tuple[SchedMap, epJSONObjs]:
+    """Convert NCM schedule data into an epJSON schedule library.
+
+    Parameters
+    ----------
+    annual_sched_rows : PyODBCRows
+        Rows of the `[annual_schedules]` table.
+    annual_weekly_sched_rows : PyODBCRows
+        Rows of the `[annual_weekly_schedules]` table.
+    weekly_sched_rows : PyODBCRows
+        Rows of the `[weekly_schedules]` table.
+    daily_sched_rows : PyODBCRows
+        Rows of the `[daily_schedules]` table.
+    sched_type_rows : PyODBCRows
+        Rows of the `[schedules_type]` table.
+
+    Returns
+    -------
+    tuple[SchedMap, epJSONObjs]
+        An epJSON schedule library containing:
+        - a map of annual schedule ids to epJSON object names grouped by EP object type.
+        - a map of epJSON object names to epJSON object bodies.
+    """
     # -----------------------------------------------------------------------------
-    # 2) create maps of ids to names
+    # 1) create maps of ids to names
     # -----------------------------------------------------------------------------
+
+    # create a map of schedule type ids to names
+    sched_type_id2name = {row.ID: row.COD for row in sched_type_rows}
 
     # create a map of ncm ids to ep object names for annual schedules
     annual_sched_id2name = {
@@ -203,13 +249,8 @@ def read_scheds(  # noqa: PLR0915
         row.ID: f"ncm-daily-{row.ID}-{row.NAME}" for row in daily_sched_rows
     }
 
-    # create a map of schedule type ids to names
-    query = "SELECT * FROM [schedules_type]"
-    cur.execute(query)
-    sched_type_id2name = {row.ID: row.COD for row in cur.fetchall()}
-
     # -----------------------------------------------------------------------------
-    # 3) create a map of annual schedule ids to epJSON object names by object type
+    # 2) create a map of annual schedule ids to epJSON object names by object type
     # -----------------------------------------------------------------------------
 
     sched_map: SchedMap = {}
@@ -271,7 +312,7 @@ def read_scheds(  # noqa: PLR0915
                 )
 
     # -----------------------------------------------------------------------------
-    # 4) convert annual, weekly and daily schedules to epJSON objects
+    # 3) convert annual, weekly and daily schedules to epJSON objects
     # -----------------------------------------------------------------------------
 
     epjson_objs: epJSONObjs = {}
@@ -375,7 +416,7 @@ def read_scheds(  # noqa: PLR0915
 
 
 def pick_scheds(
-    activity_rows: list[pyodbc.Row],
+    activity_rows: PyODBCRows,
     sched_map: SchedMap,
     epjson_objs: epJSONObjs,
     room_names: Sequence[str],
@@ -385,7 +426,7 @@ def pick_scheds(
 
     Parameters
     ----------
-    activity_rows : list[pyodbc.Row]
+    activity_rows : PyODBCRows
         Rows of the `[activity]` table.
     sched_map : SchedMap
         Map of annual schedule ids to epJSON object names grouped by EP object type.
