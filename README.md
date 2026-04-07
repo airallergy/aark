@@ -17,7 +17,7 @@ airallergy’s research kit
 Tools for analysing the [National Calculation Methodology (NCM) database](https://www.uk-ncm.org.uk/), tested primarily on data related to English dwellings.
 
 > [!TIP]
-> To access the NCM database, the NCM modules depend on `pyodbc`, which in turn depends on an ODBC driver and driver manager for Microsoft Access. See the [`pyodbc` installation guide`](https://github.com/mkleehammer/pyodbc/wiki/Install) for details.
+> To access the NCM database, the NCM modules depend on `pyodbc`, which in turn depends on an ODBC driver and driver manager for Microsoft Access. See the [`pyodbc` installation guide](https://github.com/mkleehammer/pyodbc/wiki/Install) for details.
 
 #### Get activity schedules in the epJSON format
 
