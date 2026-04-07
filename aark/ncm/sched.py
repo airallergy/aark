@@ -1,7 +1,7 @@
 """Convert NCM schedules into epJSON objects.
 
 Caveats:
-- non-leap year is assumed
+- a non-leap year is assumed
 - other gains schedules are not converted
 """
 
