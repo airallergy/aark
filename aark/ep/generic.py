@@ -15,17 +15,20 @@ def get_zone_name(obj: EpBunch) -> str:
 
     match class_name:
         case "BUILDINGSURFACE:DETAILED":
-            return obj.Zone_Name
+            zone_name = obj.Zone_Name
         case "FENESTRATIONSURFACE:DETAILED":
             surface = obj.theidf.getobject(
                 "BUILDINGSURFACE:DETAILED", obj.Building_Surface_Name
             )
-            return surface.Zone_Name
+            zone_name = surface.Zone_Name
         case _:
             raise ValueError(f"Unsupported class: {class_name}.")
 
+    assert isinstance(zone_name, str)  # eppy typing
+    return zone_name
 
-def get_field_default_value(obj: EpBunch, field_name: str) -> str:
+
+def get_field_default_value(obj: EpBunch, field_name: str) -> str | float | int:
     """Get the default value of a field."""
     values = obj.getfieldidd_item(field_name, "default")
 
@@ -33,6 +36,7 @@ def get_field_default_value(obj: EpBunch, field_name: str) -> str:
         raise ValueError(f"No default value: {obj.key}.{field_name}.")
 
     (value,) = values
+    assert isinstance(value, (str, float, int))  # eppy typing
     return value
 
 
