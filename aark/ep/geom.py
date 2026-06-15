@@ -10,6 +10,60 @@ if TYPE_CHECKING:
 
     type Float64Array2D = np.ndarray[tuple[int, int], np.dtype[np.float64]]
 
+#############################################################################
+#######                     AFFINE TRANSFORMATION                     #######
+#############################################################################
+
+
+def _check_points(points: Float64Array2D) -> None:
+    """Check if the point array has shape (n, 3)."""
+    if points.ndim != 2:
+        raise ValueError(f"Expected 2D array: {points}.")
+
+    if points.shape[1] != 3:
+        raise ValueError(f"Expected 3 columns: {points}.")
+
+
+def translator(dx: float, dy: float, dz: float = 0.0) -> Float64Array2D:
+    """Create a 4x4 translation matrix."""
+    m = np.eye(4, dtype=float)
+    m[0, 3] = dx
+    m[1, 3] = dy
+    m[2, 3] = dz
+    return m
+
+
+def rotator_z(dphi_rad: float) -> Float64Array2D:
+    """Create a 4x4 rotation matrix about the Z axis through the origin."""
+    c = np.cos(dphi_rad)
+    s = np.sin(dphi_rad)
+
+    m = np.eye(4, dtype=float)
+    m[0, 0] = c
+    m[0, 1] = -s
+    m[1, 0] = s
+    m[1, 1] = c
+    return m
+
+
+def transform(points: Float64Array2D, transformer: Float64Array2D) -> Float64Array2D:
+    """Apply an affine transformation to a set of points with shape (n, 3)."""
+    points = np.asarray(points, dtype=float)
+    transformer = np.asarray(transformer, dtype=float)
+
+    # sanity check
+    _check_points(points)
+
+    ## validate the affine transformation matrix
+    if transformer.shape != (4, 4):
+        raise ValueError(f"Expected 4x4 transformation matrix: {transformer}.")
+
+    if not np.allclose(transformer[3, :], [0, 0, 0, 1]):
+        raise ValueError(f"Expected affine transformation matrix: {transformer}.")
+
+    # apply the affine transformation
+    return points @ transformer[:3, :3].T + transformer[:3, 3]
+
 
 #############################################################################
 #######                          EPPY HELPER                          #######
@@ -27,11 +81,7 @@ def _make_vertex_fields_slicer(obj: EpBunch) -> slice:
 
 def _check_vertices(vertices: Float64Array2D) -> None:
     """Check if the vertex array is compatible with EnergyPlus detailed geometry."""
-    if vertices.ndim != 2:
-        raise ValueError(f"Expected 2D array: {vertices}.")
-
-    if vertices.shape[1] != 3:
-        raise ValueError(f"Expected 3 columns: {vertices}.")
+    _check_points(vertices)
 
     if vertices.shape[0] < 3:
         raise ValueError(f"Expected at least 3 vertices: {vertices}.")
