@@ -10,7 +10,11 @@ authors = [{ name = "Cheng Cui", email = "cheng.cui.95@gmail.com" }]
 license = "BSD-3-Clause"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = ["pyodbc==5.*"]
+dependencies = [
+    "eppy~=0.5.63",
+    "numpy==2.*",
+    "pyodbc==5.*",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
