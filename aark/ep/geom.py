@@ -54,7 +54,6 @@ def transform(points: Float64Array2D, transformer: Float64Array2D) -> Float64Arr
     # sanity check
     _check_points(points)
 
-    ## validate the affine transformation matrix
     if transformer.shape != (4, 4):
         raise ValueError(f"Expected 4x4 transformation matrix: {transformer}.")
 
@@ -147,6 +146,88 @@ def set_world_geometry_rule(idf: IDF) -> None:
     obj.Coordinate_System = "World"
     obj.Daylighting_Reference_Point_Coordinate_System = "World"
     obj.Rectangular_Surface_Coordinate_System = "World"
+
+
+def get_field_default_value(obj: EpBunch, field_name: str) -> str:
+    """Get the default value of a field."""
+    values = obj.getfieldidd_item(field_name, "default")
+
+    if not values:
+        raise ValueError(f"No default value: {obj.key}.{field_name}.")
+
+    (value,) = values
+    return value
+
+
+def get_field_value_as_float(obj: EpBunch, field_name: str) -> float:
+    """Get a real field value as float."""
+    # sanity check
+    if obj.getfieldidd_item(field_name, "type") != ["real"]:
+        raise ValueError(f"Field is not a real number: {obj.key}.{field_name}.")
+
+    # get the field value
+    value = getattr(obj, field_name)
+
+    # set default value if the field is empty
+    if value == "":
+        value = get_field_default_value(obj, field_name)
+
+    # convert to float
+    return float(value)
+
+
+def convert_to_world_coordinate_system(idf: IDF) -> None:
+    """Convert detailed zone geometry from relative to world coordinates.
+
+    Assumes Building North Axis and Zone Direction of Relative North are zero or unused.
+    """
+    # check the building relative north
+    (building_obj,) = idf.idfobjects["BUILDING"]
+
+    if not np.isclose(get_field_value_as_float(building_obj, "North_Axis"), 0):
+        raise ValueError(f"Building.North_Axis is not zero: {building_obj}.")
+
+    building_obj.North_Axis = ""
+
+    # initialise a map of zone names to origins
+    zone_name2origin = {}
+
+    # loop through all zone objects
+    for obj in idf.idfobjects["ZONE"]:
+        # check the zone relative north
+        if not np.isclose(
+            get_field_value_as_float(obj, "Direction_of_Relative_North"), 0
+        ):
+            raise ValueError(f"Zone.Direction_of_Relative_North is not zero: {obj}.")
+
+        obj.Direction_of_Relative_North = ""
+
+        # get the zone origin
+        zone_name2origin[obj.Name] = (
+            get_field_value_as_float(obj, "X_Origin"),
+            get_field_value_as_float(obj, "Y_Origin"),
+            get_field_value_as_float(obj, "Z_Origin"),
+        )
+
+        obj.X_Origin = ""
+        obj.Y_Origin = ""
+        obj.Z_Origin = ""
+
+    # loop through all detailed geometry objects
+    for class_name in ("BUILDINGSURFACE:DETAILED", "FENESTRATIONSURFACE:DETAILED"):
+        for obj in idf.idfobjects[class_name]:
+            # get the origin of the parent zone
+            zone_name = get_zone_name(obj)
+            origin = zone_name2origin[zone_name]
+
+            # transform the vertices to world coordinates
+            vertices = get_vertices(obj)
+            transformer = translator(*origin)
+            vertices = transform(vertices, transformer)
+            set_vertices(obj, vertices)
+
+    # set the world geometry rule
+    set_world_geometry_rule(idf)
 
 
 def rstrip_empty_fields(obj: EpBunch) -> None:
