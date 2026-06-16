@@ -180,8 +180,8 @@ def convert_to_world_coordinate_system(idf: IDF) -> None:
     for class_name in ("BUILDINGSURFACE:DETAILED", "FENESTRATIONSURFACE:DETAILED"):
         for obj in idf.idfobjects[class_name]:
             # get the origin of the parent zone
-            zone_name = aark.ep.generic.get_zone_name(obj)
-            origin = zone_name2origin[zone_name]
+            zone_obj = aark.ep.generic.get_zone_obj(obj)
+            origin = zone_name2origin[zone_obj.Name]
 
             # transform the vertices to world coordinates
             vertices = get_vertices(obj)

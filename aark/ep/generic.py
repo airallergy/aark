@@ -9,30 +9,29 @@ if TYPE_CHECKING:
     type Float64Array2D = np.ndarray[tuple[int, int], np.dtype[np.float64]]
 
 
-def get_parent_name(obj: EpBunch) -> str:
-    """Get the parent name for an object."""
+def get_parent_obj(obj: EpBunch) -> EpBunch:
+    """Get the parent object of an object."""
     match obj.key.upper():
         case "BUILDINGSURFACE:DETAILED":
             parent_name = obj.Zone_Name
+            parent_class = "ZONE"
         case "FENESTRATIONSURFACE:DETAILED":
             parent_name = obj.Building_Surface_Name
+            parent_class = "BUILDINGSURFACE:DETAILED"
         case _ as class_name:
             raise ValueError(f"Unsupported class: {class_name}.")
 
-    assert isinstance(parent_name, str)  # eppy typing
-    return parent_name
+    return obj.theidf.getobject(parent_class, parent_name)
 
 
-def get_zone_name(obj: EpBunch) -> str:
-    """Get the zone name for an object."""
+def get_zone_obj(obj: EpBunch) -> EpBunch:
+    """Get the zone object of an object."""
     match obj.key.upper():
         case "BUILDINGSURFACE:DETAILED":
-            return get_parent_name(obj)
+            return get_parent_obj(obj)
         case "FENESTRATIONSURFACE:DETAILED":
-            surface_name = get_parent_name(obj)
-            surface_obj = obj.theidf.getobject("BUILDINGSURFACE:DETAILED", surface_name)
-
-            return get_zone_name(surface_obj)
+            surface_obj = get_parent_obj(obj)
+            return get_parent_obj(surface_obj)
         case _ as class_name:
             raise ValueError(f"Unsupported class: {class_name}.")
 
