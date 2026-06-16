@@ -17,10 +17,10 @@ def get_zone_name(obj: EpBunch) -> str:
         case "BUILDINGSURFACE:DETAILED":
             zone_name = obj.Zone_Name
         case "FENESTRATIONSURFACE:DETAILED":
-            surface = obj.theidf.getobject(
+            surface_obj = obj.theidf.getobject(
                 "BUILDINGSURFACE:DETAILED", obj.Building_Surface_Name
             )
-            zone_name = surface.Zone_Name
+            zone_name = get_zone_name(surface_obj)
         case _:
             raise ValueError(f"Unsupported class: {class_name}.")
 
