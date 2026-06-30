@@ -1,5 +1,6 @@
 """Manipulate EnergyPlus geometry."""
 
+from collections import Counter
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -191,3 +192,60 @@ def convert_to_world_coordinate_system(idf: IDF) -> None:
 
     # set the world geometry rule
     set_world_geometry_rule(idf)
+
+
+#############################################################################
+#######                        SURFACE GENERIC                        #######
+#############################################################################
+
+
+def _make_pair_map(pairs: list[frozenset[str]]) -> dict[str, str]:
+    """Make a reciprocal pair map."""
+    # sanity check
+    for pair in pairs:
+        if len(pair) != 2:
+            raise ValueError(f"Pair self reciprocal: {pair}.")
+
+    for pair, count in Counter(pairs).items():
+        if count != 2:
+            raise ValueError(f"Pair not reciprocal: {pair}.")
+
+    # make map
+    pair_map = {}
+
+    for a, b in sorted(sorted(item) for item in set(pairs)):
+        pair_map[a] = b
+        pair_map[b] = a
+
+    return pair_map
+
+
+def get_pair_maps(base_idf: IDF) -> tuple[dict[str, str], dict[str, str]]:
+    """Get maps of paired surface and subsurface names."""
+    # get surface map
+    surface_name_pairs = [
+        frozenset((obj.Name, obj.Outside_Boundary_Condition_Object))
+        for obj in base_idf.idfobjects["BUILDINGSURFACE:DETAILED"]
+        if obj.Outside_Boundary_Condition == "Surface"
+    ]
+    surface2other_name = _make_pair_map(surface_name_pairs)
+
+    # get subsurface map
+    subsurface_name_pairs = [
+        frozenset((obj.Name, obj.Outside_Boundary_Condition_Object))
+        for obj in base_idf.idfobjects["FENESTRATIONSURFACE:DETAILED"]
+        if obj.Outside_Boundary_Condition_Object != ""
+    ]
+    subsurface2other_name = _make_pair_map(subsurface_name_pairs)
+
+    # sanity check
+    for a, b in subsurface2other_name.items():
+        a_obj = base_idf.getobject("FENESTRATIONSURFACE:DETAILED", a)
+        b_obj = base_idf.getobject("FENESTRATIONSURFACE:DETAILED", b)
+
+        assert (
+            surface2other_name[a_obj.Building_Surface_Name]
+            == b_obj.Building_Surface_Name
+        )
+
+    return surface2other_name, subsurface2other_name
