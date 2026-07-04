@@ -211,17 +211,14 @@ def _make_pair_map(pairs: list[frozenset[str]]) -> dict[str, str]:
             raise ValueError(f"Pair not reciprocal: {pair}.")
 
     # make map
-    pair_map = {}
-
-    for a, b in sorted(sorted(item) for item in set(pairs)):
-        pair_map[a] = b
-        pair_map[b] = a
-
-    return pair_map
+    return dict(sorted(sorted(item) for item in set(pairs)))
 
 
 def get_pair_maps(base_idf: IDF) -> tuple[dict[str, str], dict[str, str]]:
-    """Get maps of paired surface and subsurface names."""
+    """Get maps of paired surface and subsurface names.
+
+    Each pair is included once, with the key being the lexicographically smaller name.
+    """
     # get surface map
     surface_name_pairs = [
         frozenset((obj.Name, obj.Outside_Boundary_Condition_Object))
@@ -243,9 +240,17 @@ def get_pair_maps(base_idf: IDF) -> tuple[dict[str, str], dict[str, str]]:
         a_obj = base_idf.getobject("FENESTRATIONSURFACE:DETAILED", a)
         b_obj = base_idf.getobject("FENESTRATIONSURFACE:DETAILED", b)
 
-        assert (
-            surface2other_name[a_obj.Building_Surface_Name]
-            == b_obj.Building_Surface_Name
-        )
+        a_surface_name = a_obj.Building_Surface_Name
+        b_surface_name = b_obj.Building_Surface_Name
+
+        has_a_surface = a_surface_name in surface2other_name
+        has_b_surface = b_surface_name in surface2other_name
+
+        assert has_a_surface != has_b_surface
+
+        if has_a_surface:
+            assert surface2other_name[a_surface_name] == b_surface_name
+        else:
+            assert surface2other_name[b_surface_name] == a_surface_name
 
     return surface2other_name, subsurface2other_name
