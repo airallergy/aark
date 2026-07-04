@@ -121,8 +121,15 @@ def set_vertices(obj: EpBunch, vertices: Float64Array2D) -> None:
     # convert to a 1D list
     vertex_field_values = vertices.reshape(-1).tolist()
 
-    # write vertices
+    # get the slicer for the vertex fields
     slicer = _make_vertex_fields_slicer(obj)
+
+    # ensure the fieldvalues list is long enough to write the new vertices
+    if len(obj.fieldvalues) < slicer.start:
+        n_pad = slicer.start - len(obj.fieldvalues)
+        obj.fieldvalues.extend([""] * n_pad)
+
+    # write vertices
     obj.fieldvalues[slicer] = vertex_field_values
     obj.Number_of_Vertices = ""
 
