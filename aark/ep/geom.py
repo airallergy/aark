@@ -77,8 +77,8 @@ def _make_vertex_fields_slicer(obj: EpBunch) -> slice:
     if "Vertex_1_Xcoordinate" not in obj.fieldnames:
         raise ValueError(f"Object has no vertex field: {obj}.")
 
-    start = obj.fieldnames.index("Vertex_1_Xcoordinate")
-    return slice(start, None)
+    start_idx = obj.fieldnames.index("Vertex_1_Xcoordinate")
+    return slice(start_idx, None)
 
 
 def _check_vertices(vertices: Float64Array2D) -> None:
@@ -93,19 +93,19 @@ def get_vertices(obj: EpBunch) -> Float64Array2D:
     """Get vertices of a detailed geometry object."""
     # read the vertex field values as a 1D list
     slicer = _make_vertex_fields_slicer(obj)
-    vertex_field_values = list(obj.fieldvalues[slicer])
+    vertex_field_vals = list(obj.fieldvalues[slicer])
 
     # sanity check
-    if len(vertex_field_values) % 3 != 0:
+    if len(vertex_field_vals) % 3 != 0:
         raise ValueError(
             f"Number of vertex field values is not a multiple of 3: {obj}."
         )
 
-    if any(v.strip() == "" for v in vertex_field_values if isinstance(v, str)):
+    if any(val.strip() == "" for val in vertex_field_vals if isinstance(val, str)):
         raise ValueError(f"Some vertex fields are empty: {obj}.")
 
     # convert to a 2D array
-    vertices = np.array(vertex_field_values, dtype=float).reshape((-1, 3))
+    vertices = np.array(vertex_field_vals, dtype=float).reshape((-1, 3))
     _check_vertices(vertices)
 
     return vertices
@@ -119,7 +119,7 @@ def set_vertices(obj: EpBunch, vertices: Float64Array2D) -> None:
     _check_vertices(vertices)
 
     # convert to a 1D list
-    vertex_field_values = vertices.reshape(-1).tolist()
+    vertex_field_vals = vertices.reshape(-1).tolist()
 
     # get the slicer for the vertex fields
     slicer = _make_vertex_fields_slicer(obj)
@@ -130,11 +130,11 @@ def set_vertices(obj: EpBunch, vertices: Float64Array2D) -> None:
         obj.fieldvalues.extend([""] * n_pad)
 
     # write vertices
-    obj.fieldvalues[slicer] = vertex_field_values
+    obj.fieldvalues[slicer] = vertex_field_vals
     obj.Number_of_Vertices = ""
 
 
-def set_world_geometry_rule(idf: IDF) -> None:
+def set_world_geom_rule(idf: IDF) -> None:
     """Set the coordinate system to World."""
     (obj,) = idf.idfobjects["GLOBALGEOMETRYRULES"]
     obj.Coordinate_System = "World"
@@ -142,7 +142,7 @@ def set_world_geometry_rule(idf: IDF) -> None:
     obj.Rectangular_Surface_Coordinate_System = "World"
 
 
-def convert_to_world_coordinate_system(idf: IDF) -> None:
+def convert_to_world_coord_sys(idf: IDF) -> None:
     """Convert detailed zone geometry from relative to world coordinates.
 
     Assumes Building North Axis and Zone Direction of Relative North are zero or unused.
@@ -151,7 +151,7 @@ def convert_to_world_coordinate_system(idf: IDF) -> None:
     (building_obj,) = idf.idfobjects["BUILDING"]
 
     if not np.isclose(
-        aark.ep.generic.get_field_value_as_float(building_obj, "North_Axis"), 0
+        aark.ep.generic.get_field_val_as_float(building_obj, "North_Axis"), 0
     ):
         raise ValueError(f"Building.North_Axis is not zero: {building_obj}.")
 
@@ -164,9 +164,7 @@ def convert_to_world_coordinate_system(idf: IDF) -> None:
     for obj in idf.idfobjects["ZONE"]:
         # check the zone relative north
         if not np.isclose(
-            aark.ep.generic.get_field_value_as_float(
-                obj, "Direction_of_Relative_North"
-            ),
+            aark.ep.generic.get_field_val_as_float(obj, "Direction_of_Relative_North"),
             0,
         ):
             raise ValueError(f"Zone.Direction_of_Relative_North is not zero: {obj}.")
@@ -175,9 +173,9 @@ def convert_to_world_coordinate_system(idf: IDF) -> None:
 
         # get the zone origin
         zone_name2origin[obj.Name] = (
-            aark.ep.generic.get_field_value_as_float(obj, "X_Origin"),
-            aark.ep.generic.get_field_value_as_float(obj, "Y_Origin"),
-            aark.ep.generic.get_field_value_as_float(obj, "Z_Origin"),
+            aark.ep.generic.get_field_val_as_float(obj, "X_Origin"),
+            aark.ep.generic.get_field_val_as_float(obj, "Y_Origin"),
+            aark.ep.generic.get_field_val_as_float(obj, "Z_Origin"),
         )
 
         obj.X_Origin = ""
@@ -185,8 +183,8 @@ def convert_to_world_coordinate_system(idf: IDF) -> None:
         obj.Z_Origin = ""
 
     # loop through all detailed geometry objects
-    for class_name in ("BUILDINGSURFACE:DETAILED", "FENESTRATIONSURFACE:DETAILED"):
-        for obj in idf.idfobjects[class_name]:
+    for cls_name in ("BUILDINGSURFACE:DETAILED", "FENESTRATIONSURFACE:DETAILED"):
+        for obj in idf.idfobjects[cls_name]:
             # get the origin of the parent zone
             zone_obj = aark.ep.generic.get_zone_obj(obj)
             origin = zone_name2origin[zone_obj.Name]
@@ -198,7 +196,7 @@ def convert_to_world_coordinate_system(idf: IDF) -> None:
             set_vertices(obj, vertices)
 
     # set the world geometry rule
-    set_world_geometry_rule(idf)
+    set_world_geom_rule(idf)
 
 
 #############################################################################

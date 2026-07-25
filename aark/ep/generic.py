@@ -3,10 +3,7 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import numpy as np
     from eppy.bunch_subclass import EpBunch
-
-    type Float64Array2D = np.ndarray[tuple[int, int], np.dtype[np.float64]]
 
 
 def get_parent_obj(obj: EpBunch) -> EpBunch:
@@ -14,14 +11,14 @@ def get_parent_obj(obj: EpBunch) -> EpBunch:
     match obj.key.upper():
         case "BUILDINGSURFACE:DETAILED":
             parent_name = obj.Zone_Name
-            parent_class = "ZONE"
+            parent_cls = "ZONE"
         case "FENESTRATIONSURFACE:DETAILED":
             parent_name = obj.Building_Surface_Name
-            parent_class = "BUILDINGSURFACE:DETAILED"
-        case _ as class_name:
-            raise ValueError(f"Unsupported class: {class_name}.")
+            parent_cls = "BUILDINGSURFACE:DETAILED"
+        case _ as cls_name:
+            raise ValueError(f"Unsupported class: {cls_name}.")
 
-    return obj.theidf.getobject(parent_class, parent_name)
+    return obj.theidf.getobject(parent_cls, parent_name)
 
 
 def get_zone_obj(obj: EpBunch) -> EpBunch:
@@ -32,37 +29,37 @@ def get_zone_obj(obj: EpBunch) -> EpBunch:
         case "FENESTRATIONSURFACE:DETAILED":
             surface_obj = get_parent_obj(obj)
             return get_parent_obj(surface_obj)
-        case _ as class_name:
-            raise ValueError(f"Unsupported class: {class_name}.")
+        case _ as cls_name:
+            raise ValueError(f"Unsupported class: {cls_name}.")
 
 
-def get_field_default_value(obj: EpBunch, field_name: str) -> str | float | int:
+def get_field_default_val(obj: EpBunch, field_name: str) -> str | float | int:
     """Get the default value of a field."""
-    values = obj.getfieldidd_item(field_name, "default")
+    vals = obj.getfieldidd_item(field_name, "default")
 
-    if not values:
+    if not vals:
         raise ValueError(f"No default value: {obj.key}.{field_name}.")
 
-    (value,) = values
-    assert isinstance(value, (str, float, int))  # eppy typing
-    return value
+    (val,) = vals
+    assert isinstance(val, (str, float, int))  # eppy typing
+    return val
 
 
-def get_field_value_as_float(obj: EpBunch, field_name: str) -> float:
+def get_field_val_as_float(obj: EpBunch, field_name: str) -> float:
     """Get a real field value as float."""
     # sanity check
     if obj.getfieldidd_item(field_name, "type") != ["real"]:
         raise ValueError(f"Field is not a real number: {obj.key}.{field_name}.")
 
     # get the field value
-    value = getattr(obj, field_name)
+    val = getattr(obj, field_name)
 
     # set default value if the field is empty
-    if value == "":
-        value = get_field_default_value(obj, field_name)
+    if val == "":
+        val = get_field_default_val(obj, field_name)
 
     # convert to float
-    return float(value)
+    return float(val)
 
 
 def rstrip_empty_fields(obj: EpBunch) -> None:
@@ -72,7 +69,7 @@ def rstrip_empty_fields(obj: EpBunch) -> None:
         item.strip() if isinstance(item, str) else item for item in obj.fieldvalues
     ]  # obj.fieldvalues cannot be reassigned directly
 
-    if all(v == "" for v in obj.fieldvalues[1:]):
+    if all(val == "" for val in obj.fieldvalues[1:]):
         raise ValueError(f"Object is empty: {obj}.")
 
     # Remove trailing empty fields

@@ -5,7 +5,7 @@ Caveats:
 - other gains schedules are not converted
 """
 
-import datetime
+import datetime as dt
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -14,13 +14,13 @@ if TYPE_CHECKING:
     import pyodbc
 
     type PyODBCRows = list[pyodbc.Row]
-    type PyODBCCursor = pyodbc.Cursor
+    type PyODBCCur = pyodbc.Cursor
     type SchedMap = dict[int, dict[str, set[str]]]
     type epJSONObjBody = dict[str, object]  # noqa: N816, PYI042
     type epJSONObjs = dict[str, epJSONObjBody]  # noqa: N816, PYI042
 
 
-ACTIVITY_SCHED_COLUMN_NAMES = (
+ACTIVITY_SCHED_COL_NAMES = (
     "OCCUPANCY_SCH",
     "LIGHTING_SCH",
     "EQUIPMENT_SCH",
@@ -78,10 +78,7 @@ SCHED_TYPE_LIMITS_OBJS = {
 
 
 def _fetch_filter(
-    table_name: str,
-    column_name: str,
-    column_values: Iterable[object],
-    cursor: PyODBCCursor,
+    table_name: str, col_name: str, col_vals: Iterable[object], cur: PyODBCCur
 ) -> PyODBCRows:
     """Fetch rows of a table filtered by values in a given column.
 
@@ -89,11 +86,11 @@ def _fetch_filter(
     clause, because some ODBC driver apears to have a limit on the number of column
     values to be filtered via WHERE.
     """
-    column_values = set(column_values)
+    col_vals = set(col_vals)
 
-    cursor.execute(f"SELECT * FROM [{table_name}]")
-    rows = cursor.fetchall()
-    return [row for row in rows if getattr(row, column_name) in column_values]
+    cur.execute(f"SELECT * FROM [{table_name}]")
+    rows = cur.fetchall()
+    return [row for row in rows if getattr(row, col_name) in col_vals]
 
 
 def _next_month_day(month: int, day: int) -> tuple[int, int]:
@@ -101,7 +98,7 @@ def _next_month_day(month: int, day: int) -> tuple[int, int]:
 
     NOTE: this function hardcodes a non-leap year.
     """
-    date = datetime.date(2026, month, day) + datetime.timedelta(days=1)
+    date = dt.date(2026, month, day) + dt.timedelta(days=1)
     return date.month, date.day
 
 
@@ -125,7 +122,7 @@ def _add_epjson_obj(
 
 
 def read_scheds(
-    activity_rows: PyODBCRows, cursor: PyODBCCursor
+    activity_rows: PyODBCRows, cur: PyODBCCur
 ) -> tuple[PyODBCRows, PyODBCRows, PyODBCRows, PyODBCRows, PyODBCRows]:
     """Read NCM activity schedule data.
 
@@ -133,7 +130,7 @@ def read_scheds(
     ----------
     activity_rows : PyODBCRows
         Rows of the `[activity]` table.
-    cursor : PyODBCCursor
+    cur : PyODBCCur
         Open cursor of the NCM activity database.
 
     Returns
@@ -147,35 +144,31 @@ def read_scheds(
         - rows of the `[schedules_type]` table.
     """
     # get schedule type rows
-    cursor.execute("SELECT * FROM [schedules_type]")
-    sched_type_rows = cursor.fetchall()
+    cur.execute("SELECT * FROM [schedules_type]")
+    sched_type_rows = cur.fetchall()
 
     # get annual schedule ids used in the [activity] table
     annual_sched_ids = {
-        getattr(row, column_name)
+        getattr(row, col_name)
         for row in activity_rows
-        for column_name in ACTIVITY_SCHED_COLUMN_NAMES
+        for col_name in ACTIVITY_SCHED_COL_NAMES
     }
 
     # get annual schedule rows
-    annual_sched_rows = _fetch_filter(
-        "annual_schedules", "ID", annual_sched_ids, cursor
-    )
+    annual_sched_rows = _fetch_filter("annual_schedules", "ID", annual_sched_ids, cur)
 
     # get annual weekly schedule rows
     # note that annual schedules work differently from weekly and daily schedules
     # as they have an indefinite number of segments
     annual_weekly_sched_rows = _fetch_filter(
-        "annual_weekly_schedules", "ANNUAL_SCHEDULE", annual_sched_ids, cursor
+        "annual_weekly_schedules", "ANNUAL_SCHEDULE", annual_sched_ids, cur
     )
 
     # get weekly schedule ids used in the [annual_weekly_schedules] table
     weekly_sched_ids = {row.WEEKLY_SCHEDULE for row in annual_weekly_sched_rows}
 
     # get weekly schedule rows
-    weekly_sched_rows = _fetch_filter(
-        "weekly_schedules", "ID", weekly_sched_ids, cursor
-    )
+    weekly_sched_rows = _fetch_filter("weekly_schedules", "ID", weekly_sched_ids, cur)
 
     # get daily schedule ids used in the [weekly_schedules] table
     daily_sched_ids = {
@@ -185,7 +178,7 @@ def read_scheds(
     }
 
     # get daily schedule rows
-    daily_sched_rows = _fetch_filter("daily_schedules", "ID", daily_sched_ids, cursor)
+    daily_sched_rows = _fetch_filter("daily_schedules", "ID", daily_sched_ids, cur)
 
     return (
         annual_sched_rows,
@@ -441,10 +434,10 @@ def pick_scheds(
         An epJSON of schedules.
     """
     annual_sched_ids = {
-        getattr(row, column_name)
+        getattr(row, col_name)
         for row in activity_rows
         if row.NAME in room_names
-        for column_name in sched_categories
+        for col_name in sched_categories
     }
 
     sched_epjson: dict[str, epJSONObjs] = {
@@ -463,7 +456,7 @@ def pick_scheds(
 
 
 def get_scheds(
-    room_names: Sequence[str], sched_categories: Sequence[str], cursor: PyODBCCursor
+    room_names: Sequence[str], sched_categories: Sequence[str], cur: PyODBCCur
 ) -> dict[str, epJSONObjs]:
     """Get an epJSON of schedules given rooms and schedule categories.
 
@@ -476,7 +469,7 @@ def get_scheds(
         NCM room names of interest.
     sched_categories : Sequence[str]
         NCM schedule category column names of interest.
-    cursor : PyODBCCursor
+    cur : PyODBCCur
         Open cursor of the NCM activity database.
 
     Returns
@@ -485,7 +478,7 @@ def get_scheds(
         An epJSON of schedules.
     """
     # get activity rows
-    activity_rows = _fetch_filter("activity", "NAME", room_names, cursor)
+    activity_rows = _fetch_filter("activity", "NAME", room_names, cur)
 
     # read NCM schedule data
     (
@@ -494,7 +487,7 @@ def get_scheds(
         weekly_sched_rows,
         daily_sched_rows,
         sched_type_rows,
-    ) = read_scheds(activity_rows, cursor)
+    ) = read_scheds(activity_rows, cur)
 
     # convert NCM schedule data into an epJSON schedule library
     sched_map, epjson_objs = convert_scheds(
