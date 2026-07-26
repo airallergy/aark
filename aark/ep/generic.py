@@ -18,7 +18,12 @@ def get_parent_obj(obj: EpBunch) -> EpBunch:
         case _ as cls_name:
             raise ValueError(f"Unsupported class: {cls_name}.")
 
-    return obj.theidf.getobject(parent_cls, parent_name)
+    parent_obj = obj.theidf.getobject(parent_cls, parent_name)
+
+    if parent_obj is None:
+        raise ValueError(f"Missing {parent_cls} object: {parent_name}.")
+
+    return parent_obj
 
 
 def get_zone_obj(obj: EpBunch) -> EpBunch:
