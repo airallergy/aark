@@ -116,7 +116,9 @@ def _add_epjson_obj(
 ) -> None:
     """Add an epJSON object."""
     if (ep_obj_name in epjson_objs) and (epjson_objs[ep_obj_name] != epjson_obj_body):
-        raise ValueError(f"object key collision with different content: {ep_obj_name}")
+        raise ValueError(
+            f"An object exists with the same name but different fields: {ep_obj_name}."
+        )
 
     epjson_objs.update({ep_obj_name: epjson_obj_body})
 

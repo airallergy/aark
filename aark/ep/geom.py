@@ -209,11 +209,11 @@ def _make_pair_map(pairs: list[frozenset[str]]) -> dict[str, str]:
     # sanity check
     for pair in pairs:
         if len(pair) != 2:
-            raise ValueError(f"Pair self reciprocal: {pair}.")
+            raise ValueError(f"Pair is self-reciprocal: {pair}.")
 
     for pair, count in Counter(pairs).items():
         if count != 2:
-            raise ValueError(f"Pair not reciprocal: {pair}.")
+            raise ValueError(f"Pair is not reciprocal: {pair}.")
 
     # make map
     return dict(sorted(sorted(item) for item in set(pairs)))
