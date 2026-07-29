@@ -1,4 +1,4 @@
-"""Manipulate EnergyPlus geometry."""
+"""Manipulate EnergyPlus geometry objects."""
 
 from collections import Counter
 from typing import TYPE_CHECKING
@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 import aark.ep.generic
+import aark.validation.ep
 
 if TYPE_CHECKING:
     from eppy.bunch_subclass import EpBunch
@@ -145,32 +146,19 @@ def set_world_geom_rule(idf: IDF) -> None:
 def convert_to_world_coord_sys(idf: IDF) -> None:
     """Convert detailed zone geometry from relative to world coordinates.
 
-    Assumes Building North Axis and Zone Direction of Relative North are zero or unused.
+    `aark` assumptions
+    ------------------
+    `Building North Axis` and `Zone Direction of Relative North` are zero or unused.
     """
-    # check the building relative north
-    (building_obj,) = idf.idfobjects["BUILDING"]
-
-    if not np.isclose(
-        aark.ep.generic.get_field_val_as_float(building_obj, "North_Axis"), 0
-    ):
-        raise ValueError(f"Building.North_Axis is not zero: {building_obj}.")
-
-    building_obj.North_Axis = ""
+    # validate aark assumptions
+    aark.validation.ep.validate_no_building_rel_north(idf)
+    aark.validation.ep.validate_no_zone_rel_north(idf)
 
     # initialise a map of zone names to origins
     zone_name2origin = {}
 
     # loop through all zone objects
     for obj in idf.idfobjects["ZONE"]:
-        # check the zone relative north
-        if not np.isclose(
-            aark.ep.generic.get_field_val_as_float(obj, "Direction_of_Relative_North"),
-            0,
-        ):
-            raise ValueError(f"Zone.Direction_of_Relative_North is not zero: {obj}.")
-
-        obj.Direction_of_Relative_North = ""
-
         # get the zone origin
         zone_name2origin[obj.Name] = (
             aark.ep.generic.get_field_val_as_float(obj, "X_Origin"),
