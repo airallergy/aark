@@ -10,7 +10,6 @@ from aark.tm59.data import (
     ANCILLARY_ROOM_TYPES,
     BEDROOM_TYPES,
     COMMUNAL_CORRIDOR_TYPE,
-    MAX_TABULATED_N_BEDROOMS,
     STUDIO_TYPE,
 )
 
@@ -96,9 +95,6 @@ def validate_zone_map(zone_map: ZoneMap) -> None:
 
         if n_bedrooms == 0:
             raise ValueError(f"Missing bedrooms: {zone_map}.")
-
-        if n_bedrooms > MAX_TABULATED_N_BEDROOMS:
-            raise ValueError(f"Too many bedrooms: {n_bedrooms}.")
 
 
 def validate_zone_maps(idf: IDF, zone_maps: Sequence[ZoneMap]) -> None:

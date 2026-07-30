@@ -11,7 +11,6 @@ from aark.tm59.data import (
     COMMUNAL_CORRIDOR_TYPE,
     HABITABLE_ROOM_TYPES,
     INTERNAL_GAIN_PROFILES,
-    N_BEDROOMS_DEPENDENT_ROOM_TYPES,
 )
 
 if TYPE_CHECKING:
@@ -34,17 +33,12 @@ def add_occupancy(
     """Add occupancy gain to the zone."""
     gain_type = "occupancy"
 
-    if room_type not in N_BEDROOMS_DEPENDENT_ROOM_TYPES:
-        n_bedrooms = -1
-
     # get tm59 data
     n_people = INTERNAL_GAIN_PROFILES.get_n_people(room_type, n_bedrooms)
-    metabolic_rate = INTERNAL_GAIN_PROFILES.get_peak_load(
-        gain_type, room_type, n_bedrooms
-    )
-    sensible_frac = INTERNAL_GAIN_PROFILES.get_sensible_frac(room_type, n_bedrooms)
+    metabolic_rate = INTERNAL_GAIN_PROFILES.get_peak_load(gain_type, room_type)
+    sensible_frac = INTERNAL_GAIN_PROFILES.get_sensible_frac(room_type)
     occupancy_hourly_factors = INTERNAL_GAIN_PROFILES.get_hourly_factors(
-        gain_type, room_type, n_bedrooms
+        gain_type, room_type
     )
     metabolic_hourly_factors = (metabolic_rate,) * 24
 
