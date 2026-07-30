@@ -1,4 +1,4 @@
-"""CIBSE TM59:2017.
+"""Technical Memorandum 59 2017 (TM59:2017): https://www.cibse.org/knowledge-research/knowledge-portal/technical-memorandum-59-design-methodology-for-the-assessment-of-overheating-risk-in-homes.
 
 Notes
 -----

@@ -7,7 +7,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 import aark.ep.generic
-from aark.overheating.tm59.data import misc
+from aark.tm59.data import misc
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -31,7 +31,7 @@ class InternalGainProfiles:
 
     def __init__(self) -> None:
         """Read the internal gain profiles."""
-        resource = importlib.resources.files("aark.overheating.tm59").joinpath(
+        resource = importlib.resources.files("aark.tm59").joinpath(
             "data", "internal_gain_profiles.csv"
         )
 

@@ -1,13 +1,13 @@
-"""CIBSE TM59:2017 Section 5 internal gain profiles."""
+"""TM59:2017 Section 5 internal gain profiles."""
 
 from typing import TYPE_CHECKING
 
 import aark.ep.generic
 import aark.ep.sched
-import aark.overheating.tm59.utils
+import aark.tm59.utils
 import aark.validation.ep
-from aark.overheating.tm59.data import misc
-from aark.overheating.tm59.utils import INTERNAL_GAIN_PROFILES
+from aark.tm59.data import misc
+from aark.tm59.utils import INTERNAL_GAIN_PROFILES
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from eppy.modeleditor import IDF
 
     from aark.ep.sched import MonthDay
-    from aark.overheating.tm59.utils import ZoneMap
+    from aark.tm59.utils import ZoneMap
 
 
 def add_occupancy(
@@ -181,7 +181,7 @@ def apply(
     start_month_day: MonthDay = (1, 1),
     end_month_day: MonthDay = (12, 31),
 ) -> None:
-    """Apply the internal gain profiles prescribed by CIBSE TM59:2017 to the idf.
+    """Apply the internal gain profiles to the idf.
 
     `aark` assumptions
     ------------------
@@ -192,11 +192,11 @@ def apply(
     aark.validation.ep.validate_no_space(idf)
 
     # validate user inputs
-    aark.overheating.tm59.utils.validate_zone_maps(idf, zone_maps)
+    aark.tm59.utils.validate_zone_maps(idf, zone_maps)
 
     # apply to each dwelling or communal corridor
     for zone_map in zone_maps:
-        if aark.overheating.tm59.utils.is_communal_corridor_zone_map(zone_map):
+        if aark.tm59.utils.is_communal_corridor_zone_map(zone_map):
             apply_communal_corridors(idf, zone_map, start_month_day, end_month_day)
         else:
             apply_dwelling(idf, zone_map, start_month_day, end_month_day)
