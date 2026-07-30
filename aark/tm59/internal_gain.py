@@ -6,8 +6,13 @@ import aark.ep.generic
 import aark.ep.sched
 import aark.tm59.utils
 import aark.validation.ep
-from aark.tm59.data import misc
-from aark.tm59.utils import INTERNAL_GAIN_PROFILES
+from aark.tm59.data import (
+    BEDROOM_TYPES,
+    COMMUNAL_CORRIDOR_TYPE,
+    HABITABLE_ROOM_TYPES,
+    INTERNAL_GAIN_PROFILES,
+    N_BEDROOMS_DEPENDENT_ROOM_TYPES,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -29,7 +34,7 @@ def add_occupancy(
     """Add occupancy gain to the zone."""
     gain_type = "occupancy"
 
-    if room_type not in misc.N_BEDROOMS_DEPENDENT_ROOM_TYPES:
+    if room_type not in N_BEDROOMS_DEPENDENT_ROOM_TYPES:
         n_bedrooms = -1
 
     # get tm59 data
@@ -37,16 +42,16 @@ def add_occupancy(
     metabolic_rate = INTERNAL_GAIN_PROFILES.get_peak_load(
         gain_type, room_type, n_bedrooms
     )
-    sensible_heat_frac = INTERNAL_GAIN_PROFILES.get_sensible_frac(room_type, n_bedrooms)
+    sensible_frac = INTERNAL_GAIN_PROFILES.get_sensible_frac(room_type, n_bedrooms)
     occupancy_hourly_factors = INTERNAL_GAIN_PROFILES.get_hourly_factors(
         gain_type, room_type, n_bedrooms
     )
     metabolic_hourly_factors = (metabolic_rate,) * 24
 
     # get object names
-    occupancy_sched_obj_name = INTERNAL_GAIN_PROFILES.sched_uid(gain_type, room_type)
-    metabolic_sched_obj_name = INTERNAL_GAIN_PROFILES.sched_uid("metabolic")
-    gain_obj_name = INTERNAL_GAIN_PROFILES.gain_uid(gain_type, zone_name)
+    occupancy_sched_obj_name = aark.tm59.utils.sched_uid(gain_type, room_type)
+    metabolic_sched_obj_name = aark.tm59.utils.sched_uid("metabolic")
+    gain_obj_name = aark.tm59.utils.gain_uid(gain_type, zone_name)
 
     # add schedule objects
     occupancy_sched_blocks = aark.ep.sched.make_compact_blocks(
@@ -70,7 +75,7 @@ def add_occupancy(
         Number_of_People_Schedule_Name=occupancy_sched_obj_name,
         Number_of_People_Calculation_Method="People",
         Number_of_People=n_people,
-        Sensible_Heat_Fraction=sensible_heat_frac,
+        Sensible_Heat_Fraction=sensible_frac,
         Activity_Level_Schedule_Name=metabolic_sched_obj_name,
     )
 
@@ -90,8 +95,8 @@ def add_equipment(
     hourly_factors = INTERNAL_GAIN_PROFILES.get_hourly_factors(gain_type, room_type)
 
     # get object names
-    sched_obj_name = INTERNAL_GAIN_PROFILES.sched_uid(gain_type, room_type)
-    gain_obj_name = INTERNAL_GAIN_PROFILES.gain_uid(gain_type, zone_name)
+    sched_obj_name = aark.tm59.utils.sched_uid(gain_type, room_type)
+    gain_obj_name = aark.tm59.utils.gain_uid(gain_type, zone_name)
 
     # add schedule objects
     sched_blocks = aark.ep.sched.make_compact_blocks(
@@ -122,8 +127,8 @@ def add_lighting(
     hourly_factors = INTERNAL_GAIN_PROFILES.get_hourly_factors(gain_type)
 
     # get object names
-    sched_obj_name = INTERNAL_GAIN_PROFILES.sched_uid(gain_type)
-    gain_obj_name = INTERNAL_GAIN_PROFILES.gain_uid(gain_type, zone_name)
+    sched_obj_name = aark.tm59.utils.sched_uid(gain_type)
+    gain_obj_name = aark.tm59.utils.gain_uid(gain_type, zone_name)
 
     # add schedule objects
     sched_blocks = aark.ep.sched.make_compact_blocks(
@@ -147,15 +152,13 @@ def apply_dwelling(
     idf: IDF, zone_map: ZoneMap, start_month_day: MonthDay, end_month_day: MonthDay
 ) -> None:
     """Apply the internal gain profiles to a dwelling."""
-    n_bedrooms = sum(
-        len(zone_map.get(room_type, ())) for room_type in misc.BEDROOM_TYPES
-    )
+    n_bedrooms = sum(len(zone_map.get(room_type, ())) for room_type in BEDROOM_TYPES)
 
     for room_type, zone_names in zone_map.items():
         for zone_name in zone_names:
             add_lighting(idf, zone_name, start_month_day, end_month_day)
 
-            if room_type in misc.HABITABLE_ROOM_TYPES:
+            if room_type in HABITABLE_ROOM_TYPES:
                 add_occupancy(
                     idf,
                     zone_name,
@@ -171,7 +174,7 @@ def apply_communal_corridors(
     idf: IDF, zone_map: ZoneMap, start_month_day: MonthDay, end_month_day: MonthDay
 ) -> None:
     """Apply the internal gain profiles to communal corridors."""
-    for zone_name in zone_map[misc.COMMUNAL_CORRIDOR_TYPE]:
+    for zone_name in zone_map[COMMUNAL_CORRIDOR_TYPE]:
         add_lighting(idf, zone_name, start_month_day, end_month_day)
 
 
