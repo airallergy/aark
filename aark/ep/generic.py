@@ -3,7 +3,45 @@
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from eppy.bunch_subclass import EpBunch
+    from eppy.modeleditor import IDF
+
+
+MAX_EP_STR_FIELD_LENGTH = 100
+
+
+def add_named_obj(
+    idf: IDF, cls_name: str, obj_name: str, **other_obj_fields: str
+) -> None:
+    """Add a named object if an identical object does not exist."""
+    if not obj_name:
+        raise ValueError(f"Empty object name: {obj_name}.")
+
+    if len(obj_name) > MAX_EP_STR_FIELD_LENGTH:
+        raise ValueError(
+            f"EnergyPlus object name exceeds {MAX_EP_STR_FIELD_LENGTH} characters: {obj_name}."
+        )
+
+    if not named_obj_exists(idf, cls_name, obj_name, **other_obj_fields):
+        idf.newidfobject(
+            cls_name, defaultvalues=False, Name=obj_name, **other_obj_fields
+        )
+
+
+def add_unnamed_obj(idf: IDF, cls_name: str, **obj_fields: str) -> None:
+    """Add an unnamed object if an identical object does not exist."""
+    raise NotImplementedError
+
+
+def add_obj(idf: IDF, cls_name: str, **obj_fields: str) -> None:
+    """Add an object if an identical object does not exist."""
+    match obj_fields:
+        case {"Name": obj_name, **other_obj_fields}:
+            add_named_obj(idf, cls_name, obj_name, **other_obj_fields)
+        case _:
+            add_unnamed_obj(idf, cls_name, **obj_fields)
 
 
 def get_parent_obj(obj: EpBunch) -> EpBunch:
@@ -80,3 +118,44 @@ def rstrip_empty_fields(obj: EpBunch) -> None:
     # Remove trailing empty fields
     while obj.fieldvalues[-1] == "":
         obj.fieldvalues.pop()
+
+
+# -----------------------------------------------------------------------------
+# Validation
+# -----------------------------------------------------------------------------
+
+
+def validate_zones_exist_by_name(idf: IDF, zone_names: Iterable[str]) -> None:
+    """Validate that zones exist in the idf by zone name."""
+    existing_zone_names = {str(obj.Name) for obj in idf.idfobjects["ZONE"]}
+    missing_zone_names = sorted(set(zone_names) - existing_zone_names)
+    if missing_zone_names:
+        raise ValueError(f"Missing zones: {missing_zone_names}.")
+
+
+# -----------------------------------------------------------------------------
+# Predication
+# -----------------------------------------------------------------------------
+
+
+def named_obj_exists(
+    idf: IDF, cls_name: str, obj_name: str, **other_obj_fields: str
+) -> bool:
+    """Check whether an identical named object exists."""
+    existing_obj = idf.getobject(cls_name, obj_name)
+
+    if existing_obj is None:
+        return False
+
+    tmp_idf = type(idf)()
+    tmp_idf.new()
+    tmp_obj = tmp_idf.newidfobject(
+        cls_name, defaultvalues=False, Name=obj_name, **other_obj_fields
+    )
+
+    if existing_obj.fieldvalues[2:] != tmp_obj.fieldvalues[2:]:
+        raise ValueError(
+            f"Object exists with the same name but different field values: {obj_name}."
+        )
+
+    return True

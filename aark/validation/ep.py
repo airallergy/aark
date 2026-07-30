@@ -14,6 +14,45 @@ if TYPE_CHECKING:
     from eppy.modeleditor import IDF
 
 
+MIN_EP_VER = (24, 1)
+
+
+def validate_ep_ver(idf: IDF) -> None:
+    """Validate the EnergyPlus version of the model."""
+
+    def ep_ver_as_str(ver: tuple[int, int]) -> str:
+        major, minor = ver
+        return f"{major}.{minor}"
+
+    # check the version of the idd
+    idd_ver_major, idd_ver_minor, *_ = map(int, idf.idd_version)
+    idd_ver = (idd_ver_major, idd_ver_minor)
+
+    if idd_ver < MIN_EP_VER:
+        raise ValueError(
+            f"IDD version is not {ep_ver_as_str(MIN_EP_VER)} or later: {ep_ver_as_str(idd_ver)}."
+        )
+
+    # check the version of the idf
+    (ver_obj,) = idf.idfobjects["VERSION"]
+    idf_ver_str = str(ver_obj.Version_Identifier).strip()
+    idf_ver_major, idf_ver_minor, *_ = map(int, idf_ver_str.split("."))
+    idf_ver = (idf_ver_major, idf_ver_minor)
+
+    if idf_ver < MIN_EP_VER:
+        raise ValueError(
+            f"IDF version is not {ep_ver_as_str(MIN_EP_VER)} or later: {ep_ver_as_str(idf_ver)}."
+        )
+
+    # check that the idf and the idd have the same version
+    if idf_ver != idd_ver:
+        raise ValueError(
+            "IDD and IDF versions do not match: "
+            f"IDD={idd_ver[0]}.{idd_ver[1]}, "
+            f"IDF={idf_ver[0]}.{idf_ver[1]}."
+        )
+
+
 def validate_no_building_rel_north(idf: IDF) -> None:
     """Validate that the building's north axis is zero or unused."""
     (building_obj,) = idf.idfobjects["BUILDING"]
@@ -37,3 +76,11 @@ def validate_no_zone_rel_north(idf: IDF) -> None:
             )
 
         zone_obj.Direction_of_Relative_North = ""
+
+
+def validate_no_space(idf: IDF) -> None:
+    """Validate that idf does not use EnergyPlus spaces."""
+    space_objs = idf.idfobjects["SPACE"]
+
+    if space_objs:
+        raise ValueError(f"Space object is not supported: {space_objs}.")
