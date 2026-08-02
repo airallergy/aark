@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 SUMMER_START_MONTH_DAY = (5, 1)
 SUMMER_END_MONTH_DAY = (9, 30)
-CRITERION_1_THRESHOLD = 3  # % of occupied hours
+CRITERION_1_THRESHOLD = 3  # %
 CRITERION_2_THRESHOLD = 6  # K h
 CRITERION_3_THRESHOLD = 4  # K
 
@@ -149,7 +149,7 @@ def _calc_deltaT(Top: FloatArr2D, Tmax: FloatArr1D) -> FloatArr2D:
 
 
 # -----------------------------------------------------------------------------
-# Criterion 1
+# Criteria
 # -----------------------------------------------------------------------------
 
 
@@ -183,8 +183,7 @@ def assess_criterion_1(
     n_occupied_hours = n_occupied_timesteps / n_hourly_timesteps
 
     passed = bool(
-        n_exceeded_timesteps * 100
-        <= CRITERION_1_THRESHOLD * n_occupied_timesteps
+        n_exceeded_timesteps * 100 <= CRITERION_1_THRESHOLD * n_occupied_timesteps
     )
 
     return {
@@ -193,11 +192,6 @@ def assess_criterion_1(
         "threshold": CRITERION_1_THRESHOLD,
         "passed": passed,
     }
-
-
-# -----------------------------------------------------------------------------
-# Criterion 2
-# -----------------------------------------------------------------------------
 
 
 def assess_criterion_2(
@@ -236,11 +230,6 @@ def assess_criterion_2(
     }
 
 
-# -----------------------------------------------------------------------------
-# Criterion 3
-# -----------------------------------------------------------------------------
-
-
 def assess_criterion_3(
     Top_1d: Iterable[float],
     Trm_1d: Iterable[float],
@@ -262,13 +251,13 @@ def assess_criterion_3(
     )
 
     # calculate criterion metric
-    max_deltaT = int(deltaT[occupied].max())
+    max_exceedance = int(deltaT[occupied].max())
 
     # calculate other return values
-    passed = bool(max_deltaT <= CRITERION_3_THRESHOLD)
+    passed = bool(max_exceedance <= CRITERION_3_THRESHOLD)
 
     return {
-        "max_deltaT": max_deltaT,
+        "max_exceedance": max_exceedance,
         "threshold": CRITERION_3_THRESHOLD,
         "passed": passed,
     }
