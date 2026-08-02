@@ -26,3 +26,14 @@ def prefix(s: str) -> str:
 def as_date(month_day: MonthDay) -> dt.date:
     """Convert a month-day to a date in a reference leap year."""
     return dt.date(LEAP_REF_YEAR, *month_day)
+
+
+# -----------------------------------------------------------------------------
+# Validation
+# -----------------------------------------------------------------------------
+
+
+def validate_positive_n_timesteps(n_timesteps: int) -> None:
+    """Validate that the number of timesteps is positive."""
+    if n_timesteps <= 0:
+        raise ValueError(f"Non-positive number of timesteps: {n_timesteps}.")
