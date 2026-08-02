@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
     from eppy.modeleditor import IDF
 
-    from aark.ep.sched import MonthDay
+    from aark import MonthDay
     from aark.tm59.utils import ZoneMap
 
 

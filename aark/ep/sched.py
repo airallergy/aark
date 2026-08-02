@@ -11,10 +11,9 @@ if TYPE_CHECKING:
 
     from eppy.modeleditor import IDF
 
-    type MonthDay = Sequence[int]
+    from aark import MonthDay
 
 
-REF_YEAR = 2000
 VAL_TYPE2LIMITS = {
     "Fraction": {
         "Lower_Limit_Value": "0",
@@ -41,12 +40,6 @@ VAL_TYPE2LIMITS = {
         "Unit_Type": "ActivityLevel",
     },
 }
-
-
-def parsed_date(month_day: MonthDay) -> dt.date:
-    """Convert a month-day sequence to a date in a reference leap year."""
-    month, day = month_day
-    return dt.date(REF_YEAR, month, day)
 
 
 def compress_hourly_vals(hourly_vals: Sequence[str]) -> list[tuple[int, str]]:
@@ -82,8 +75,8 @@ def make_compact_blocks(
 ) -> list[list[str]]:
     """Create compact schedule blocks with zero values outside an active period."""
     # parse and validate two dates
-    start_date = parsed_date(start_month_day)
-    end_date = parsed_date(end_month_day)
+    start_date = aark.as_date(start_month_day)
+    end_date = aark.as_date(end_month_day)
 
     if start_date >= end_date:
         raise ValueError(
@@ -93,7 +86,7 @@ def make_compact_blocks(
     zero_hourly_vals = ("0",) * 24
     blocks = []
 
-    if start_date != dt.date(REF_YEAR, 1, 1):
+    if start_date != aark.as_date((1, 1)):
         inactive_end_date = start_date - dt.timedelta(days=1)
         blocks.append(
             make_compact_block(
@@ -103,7 +96,7 @@ def make_compact_blocks(
 
     blocks.append(make_compact_block((end_date.month, end_date.day), hourly_vals))
 
-    if end_date != dt.date(REF_YEAR, 12, 31):
+    if end_date != aark.as_date((12, 31)):
         blocks.append(make_compact_block((12, 31), zero_hourly_vals))
 
     return blocks

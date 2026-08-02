@@ -1,6 +1,7 @@
 """Convert NCM schedules into epJSON objects.
 
-Caveats:
+Caveats
+-------
 - a non-leap year is assumed
 - other gains schedules are not converted
 """
@@ -12,6 +13,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
     import pyodbc
+
+    from aark import MonthDay
 
     type PyODBCRows = list[pyodbc.Row]
     type PyODBCCur = pyodbc.Cursor
@@ -93,7 +96,7 @@ def _fetch_filter(
     return [row for row in rows if getattr(row, col_name) in col_vals]
 
 
-def _next_month_day(month: int, day: int) -> tuple[int, int]:
+def _next_month_day(month: int, day: int) -> MonthDay:
     """Return the next month and day given a month and day.
 
     NOTE: this function hardcodes a non-leap year.

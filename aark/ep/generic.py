@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from eppy.modeleditor import IDF
 
 
-MAX_EP_STR_FIELD_LENGTH = 100
+MAX_EP_STR_FIELD_LEN = 100
 
 
 def add_named_obj(
@@ -19,9 +19,9 @@ def add_named_obj(
     if not obj_name:
         raise ValueError(f"Empty object name: {obj_name}.")
 
-    if len(obj_name) > MAX_EP_STR_FIELD_LENGTH:
+    if len(obj_name) > MAX_EP_STR_FIELD_LEN:
         raise ValueError(
-            f"EnergyPlus object name exceeds {MAX_EP_STR_FIELD_LENGTH} characters: {obj_name}."
+            f"EnergyPlus object name exceeds {MAX_EP_STR_FIELD_LEN} characters: {obj_name}."
         )
 
     if not named_obj_exists(idf, cls_name, obj_name, **other_obj_fields):

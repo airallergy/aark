@@ -12,14 +12,14 @@ if TYPE_CHECKING:
     from eppy.bunch_subclass import EpBunch
     from eppy.modeleditor import IDF
 
-    type Float64Array2D = np.ndarray[tuple[int, int], np.dtype[np.float64]]
+    from aark.arr import FloatArr2D
 
 #############################################################################
 #######                     AFFINE TRANSFORMATION                     #######
 #############################################################################
 
 
-def _check_points(points: Float64Array2D) -> None:
+def _check_points(points: FloatArr2D) -> None:
     """Check if the point array has shape (n, 3)."""
     if points.ndim != 2:
         raise ValueError(f"Expected 2D array: {points}.")
@@ -28,7 +28,7 @@ def _check_points(points: Float64Array2D) -> None:
         raise ValueError(f"Expected 3 columns: {points}.")
 
 
-def translator(dx: float, dy: float, dz: float = 0.0) -> Float64Array2D:
+def translator(dx: float, dy: float, dz: float = 0.0) -> FloatArr2D:
     """Create a 4x4 translation matrix."""
     m = np.eye(4, dtype=float)
     m[0, 3] = dx
@@ -37,7 +37,7 @@ def translator(dx: float, dy: float, dz: float = 0.0) -> Float64Array2D:
     return m
 
 
-def rotator_z(dphi_rad: float) -> Float64Array2D:
+def rotator_z(dphi_rad: float) -> FloatArr2D:
     """Create a 4x4 rotation matrix about the Z axis through the origin."""
     c = np.cos(dphi_rad)
     s = np.sin(dphi_rad)
@@ -50,7 +50,7 @@ def rotator_z(dphi_rad: float) -> Float64Array2D:
     return m
 
 
-def transform(points: Float64Array2D, transformer: Float64Array2D) -> Float64Array2D:
+def transform(points: FloatArr2D, transformer: FloatArr2D) -> FloatArr2D:
     """Apply an affine transformation to a set of points with shape (n, 3)."""
     points = np.asarray(points, dtype=float)
     transformer = np.asarray(transformer, dtype=float)
@@ -82,7 +82,7 @@ def _make_vertex_fields_slicer(obj: EpBunch) -> slice:
     return slice(start_idx, None)
 
 
-def _check_vertices(vertices: Float64Array2D) -> None:
+def _check_vertices(vertices: FloatArr2D) -> None:
     """Check if the vertex array is compatible with EnergyPlus detailed geometry."""
     _check_points(vertices)
 
@@ -90,7 +90,7 @@ def _check_vertices(vertices: Float64Array2D) -> None:
         raise ValueError(f"Expected at least 3 vertices: {vertices}.")
 
 
-def get_vertices(obj: EpBunch) -> Float64Array2D:
+def get_vertices(obj: EpBunch) -> FloatArr2D:
     """Get vertices of a detailed geometry object."""
     # read the vertex field values as a 1D list
     slicer = _make_vertex_fields_slicer(obj)
@@ -112,7 +112,7 @@ def get_vertices(obj: EpBunch) -> Float64Array2D:
     return vertices
 
 
-def set_vertices(obj: EpBunch, vertices: Float64Array2D) -> None:
+def set_vertices(obj: EpBunch, vertices: FloatArr2D) -> None:
     """Set vertices of a detailed geometry object."""
     vertices = np.asarray(vertices, dtype=float)
 
