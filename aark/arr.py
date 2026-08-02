@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     ] = np.ndarray[ShapeT, DTypeT]
     type Arr1D[T: np.generic = np.generic] = Arr[tuple[int], np.dtype[T]]
     type Arr2D[T: np.generic = np.generic] = Arr[tuple[int, int], np.dtype[T]]
+    type BoolArr1D = Arr1D[np.bool_]
     type BoolArr2D = Arr2D[np.bool_]
     type FloatArr1D = Arr1D[np.floating]
     type FloatArr2D = Arr2D[np.floating]
@@ -36,7 +37,10 @@ def round[ShapeT: tuple[int, *tuple[int, ...]], ScalarT: np.floating](
 def date_linspace(
     start_date: dt.date, end_date: dt.date, n_daily_timesteps: int
 ) -> Arr1D[np.datetime64]:
-    """Return a full-day datetime array over the interval [start_date, end_date]."""
+    """Return a full-day datetime array over the interval [start_date, end_date].
+
+    Timesteps are assumed to be a whole number of minutes.
+    """
     # normalise
     start_date = dt.date(start_date.year, start_date.month, start_date.day)
     end_date = dt.date(end_date.year, end_date.month, end_date.day)

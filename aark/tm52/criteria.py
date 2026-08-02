@@ -38,10 +38,12 @@ def _parsed_criterion_args(
     occupancy_1d = aark.arr.as_1d(occupancy_1d)
 
     # validate
-    aark.validate_positive_n_timesteps(n_hourly_timesteps)
     aark.arr.validate_finite(Top_1d, Trm, occupancy_1d)
+    aark.validate_positive_n_timesteps(n_hourly_timesteps)
     aark.arr.validate_full_days(Top_1d, n_hourly_timesteps)
-    validate_assessment_period(start_month_day, end_month_day)
+    validate_assessment_period(
+        start_month_day, end_month_day, SUMMER_START_MONTH_DAY, SUMMER_END_MONTH_DAY
+    )
     validate_category(category)
 
     # convert
@@ -78,20 +80,11 @@ def _parsed_criterion_args(
 def calc_Trm(Tod_1d: Iterable[float]) -> FloatArr1D:
     """Calculate daily exponentially weighted running mean temperature.
 
-    Parameters
-    ----------
-    Tod_1d : Iterable[float]
-        1D complete-year series of daily mean outdoor air temperatures, in
-        degrees Celsius, ordered from 1 January through 31 December. Must
-        contain 365 or 366 values.
-
-    Returns
-    -------
-    FloatArr1D
-        One running-mean outdoor temperature for each day, in degrees Celsius.
-
     Notes
     -----
+    The final seven days of the provided one-year daily mean outdoor air
+    temperature data are used to initialise `Trm`.
+
     The recurrence is vectorised. For example, with `alpha = 0.8`:
 
     ```python
@@ -162,7 +155,10 @@ def assess_criterion_1(
     n_hourly_timesteps: int = 1,
     category: int = 2,
 ) -> dict[str, object]:
-    """Assess TM52 criterion 1, hours of exceedance."""
+    """Assess TM52 criterion 1.
+
+    Hours of exceedance.
+    """
     deltaT, occupied, n_hourly_timesteps = _parsed_criterion_args(
         Top_1d,
         Trm_1d,
@@ -203,7 +199,10 @@ def assess_criterion_2(
     n_hourly_timesteps: int = 1,
     category: int = 2,
 ) -> dict[str, object]:
-    """Assess TM52 criterion 2, daily weighted exceedance."""
+    """Assess TM52 criterion 2.
+
+    Daily weighted exceedance.
+    """
     deltaT, occupied, n_hourly_timesteps = _parsed_criterion_args(
         Top_1d,
         Trm_1d,
@@ -239,7 +238,10 @@ def assess_criterion_3(
     n_hourly_timesteps: int = 1,
     category: int = 2,
 ) -> dict[str, object]:
-    """Assess TM52 criterion 3, upper limit temperature."""
+    """Assess TM52 criterion 3.
+
+    Upper limit temperature.
+    """
     deltaT, occupied, _ = _parsed_criterion_args(
         Top_1d,
         Trm_1d,
@@ -275,14 +277,17 @@ def validate_category(category: int) -> None:
 
 
 def validate_assessment_period(
-    start_month_day: MonthDay, end_month_day: MonthDay
+    start_month_day: MonthDay,
+    end_month_day: MonthDay,
+    min_start_month_day: MonthDay = (1, 1),
+    max_end_month_day: MonthDay = (12, 31),
 ) -> None:
-    """Validate that the assessment period lies within summer."""
+    """Validate that an assessment period lies within a permitted period."""
     if not (
-        aark.as_date(SUMMER_START_MONTH_DAY)
+        aark.as_date(min_start_month_day)
         <= aark.as_date(start_month_day)
         <= aark.as_date(end_month_day)
-        <= aark.as_date(SUMMER_END_MONTH_DAY)
+        <= aark.as_date(max_end_month_day)
     ):
         raise ValueError(
             f"Invalid assessment period: {start_month_day}, {end_month_day}."

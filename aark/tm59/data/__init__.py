@@ -21,6 +21,10 @@ ANCILLARY_ROOM_TYPES = frozenset({"bathroom", "hall"})
 DWELLING_ROOM_TYPES = HABITABLE_ROOM_TYPES | ANCILLARY_ROOM_TYPES
 ALL_ROOM_TYPES = DWELLING_ROOM_TYPES | frozenset({COMMUNAL_CORRIDOR_TYPE})
 
+# misc
+AWAKE_START_HOUR = 8
+AWAKE_END_HOUR = 23
+
 
 # -----------------------------------------------------------------------------
 # Internal gain profiles

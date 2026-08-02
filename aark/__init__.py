@@ -10,6 +10,7 @@ __version__ = "0.1.0"
 
 
 LEAP_REF_YEAR = 2000
+NON_LEAP_REF_YEAR = 1995
 
 
 def prefix(s: str) -> str:
@@ -23,9 +24,9 @@ def prefix(s: str) -> str:
     return f"{__package__}_{s}"
 
 
-def as_date(month_day: MonthDay) -> dt.date:
-    """Convert a month-day to a date in a reference leap year."""
-    return dt.date(LEAP_REF_YEAR, *month_day)
+def as_date(month_day: MonthDay, year: int = LEAP_REF_YEAR) -> dt.date:
+    """Convert a month-day to a date, using the reference leap year by default."""
+    return dt.date(year, *month_day)
 
 
 # -----------------------------------------------------------------------------
