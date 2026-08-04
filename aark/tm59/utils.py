@@ -97,16 +97,16 @@ def validate_zone_map(zone_map: ZoneMap) -> None:
             raise ValueError(f"Missing bedrooms: {zone_map}.")
 
 
-def validate_zone_maps(idf: IDF, zone_maps: Sequence[ZoneMap]) -> None:
+def validate_zone_maps(idf: IDF, zone_maps: Mapping[str, ZoneMap]) -> None:
     """Validate all zone maps provided by users."""
     # validate the structure of each zone map
-    for zone_map in zone_maps:
+    for zone_map in zone_maps.values():
         validate_zone_map(zone_map)
 
     # get all zone names
     zone_names = [
         zone_name
-        for zone_map in zone_maps
+        for zone_map in zone_maps.values()
         for zone_names in zone_map.values()
         for zone_name in zone_names
     ]

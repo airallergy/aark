@@ -5,36 +5,36 @@ Notes
 A key user input is `zone_maps` with the conceptual type:
 
 ```python
-list[dict[str, list[str]]]
+dict[str, dict[str, list[str]]]
 ```
 
-Each dictionary represents a dwelling or a collection of communal corridors. An example
-of `zone_maps` is:
+Each key is a dwelling name, and each value represents a dwelling or a collection of
+communal corridors. An example of `zone_maps` is:
 
 ```python
-zone_maps = [
-    {
-        "living_kitchen": ["Flat 1 Living Kitchen"],
-        "double_bedroom": ["Flat 1 Bedroom 1", "Flat 1 Bedroom 2"],
-        "single_bedroom": ["Flat 1 Bedroom 3"],
-        "bathroom": ["Flat 1 Bathroom"],
-        "hall": ["Flat 1 Hall"],
+zone_maps = {
+    "flat_1": {
+        "living_kitchen": ["flat_1_living_kitchen"],
+        "double_bedroom": ["flat_1_bedroom_1", "flat_1_bedroom_2"],
+        "single_bedroom": ["flat_1_bedroom_3"],
+        "bathroom": ["flat_1_bathroom"],
+        "hall": ["flat_1_hall"],
     },
-    {
-        "living": ["Flat 2 Living"],
-        "kitchen": ["Flat 2 Kitchen"],
-        "double_bedroom": ["Flat 2 Bedroom"],
-        "bathroom": ["Flat 2 Bathroom"],
-        "hall": ["Flat 2 Hall"],
+    "flat_2": {
+        "living": ["flat_2_living"],
+        "kitchen": ["flat_2_kitchen"],
+        "double_bedroom": ["flat_2_bedroom"],
+        "bathroom": ["flat_2_bathroom"],
+        "hall": ["flat_2_hall"],
     },
-    {
+    "communal_corridor": {
         "communal_corridor": [
-            "Corridor Floor 1",
-            "Corridor Floor 2",
-            "Corridor Floor 3",
+            "corridor_floor_1",
+            "corridor_floor_2",
+            "corridor_floor_3",
         ]
     },
-]
+}
 ```
 
 The following modelling assumptions are used by `aark` but not explicitly specified by

@@ -14,7 +14,7 @@ from aark.tm59.data import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping
 
     from eppy.modeleditor import IDF
 
@@ -174,7 +174,7 @@ def apply_communal_corridors(
 
 def apply(
     idf: IDF,
-    zone_maps: Sequence[ZoneMap],
+    zone_maps: Mapping[str, ZoneMap],
     start_month_day: MonthDay = (1, 1),
     end_month_day: MonthDay = (12, 31),
 ) -> None:
@@ -192,7 +192,7 @@ def apply(
     aark.tm59.utils.validate_zone_maps(idf, zone_maps)
 
     # apply to each dwelling or communal corridor
-    for zone_map in zone_maps:
+    for zone_map in zone_maps.values():
         if aark.tm59.utils.is_communal_corridor_zone_map(zone_map):
             apply_communal_corridors(idf, zone_map, start_month_day, end_month_day)
         else:
