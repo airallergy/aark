@@ -32,7 +32,8 @@ def add_named_obj(
 
 def add_unnamed_obj(idf: IDF, cls_name: str, **obj_fields: str) -> None:
     """Add an unnamed object if an identical object does not exist."""
-    raise NotImplementedError
+    if not unnamed_obj_exists(idf, cls_name, **obj_fields):
+        idf.newidfobject(cls_name, defaultvalues=False, **obj_fields)
 
 
 def add_obj(idf: IDF, cls_name: str, **obj_fields: str) -> None:
@@ -159,3 +160,15 @@ def named_obj_exists(
         )
 
     return True
+
+
+def unnamed_obj_exists(idf: IDF, cls_name: str, **obj_fields: str) -> bool:
+    """Check whether an identical unnamed object exists."""
+    tmp_idf = type(idf)()
+    tmp_idf.new()
+    tmp_obj = tmp_idf.newidfobject(cls_name, defaultvalues=False, **obj_fields)
+
+    return any(
+        obj.fieldvalues[1:] == tmp_obj.fieldvalues[1:]
+        for obj in idf.idfobjects[cls_name]
+    )
