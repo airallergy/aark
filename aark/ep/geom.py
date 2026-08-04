@@ -14,9 +14,9 @@ if TYPE_CHECKING:
 
     from aark.arr import FloatArr2D
 
-#############################################################################
-#######                     AFFINE TRANSFORMATION                     #######
-#############################################################################
+# -----------------------------------------------------------------------------
+# Affine transformation
+# -----------------------------------------------------------------------------
 
 
 def _check_points(points: FloatArr2D) -> None:
@@ -68,9 +68,9 @@ def transform(points: FloatArr2D, transformer: FloatArr2D) -> FloatArr2D:
     return points @ transformer[:3, :3].T + transformer[:3, 3]
 
 
-#############################################################################
-#######                       SURFACE VERTICES                        #######
-#############################################################################
+# -----------------------------------------------------------------------------
+# Surface vertices
+# -----------------------------------------------------------------------------
 
 
 def _make_vertex_fields_slicer(obj: EpBunch) -> slice:
@@ -137,7 +137,7 @@ def set_vertices(obj: EpBunch, vertices: FloatArr2D) -> None:
 
 def set_world_geom_rule(idf: IDF) -> None:
     """Set the coordinate system to World."""
-    (obj,) = idf.idfobjects["GLOBALGEOMETRYRULES"]
+    (obj,) = idf.idfobjects["GlobalGeometryRules"]
     obj.Coordinate_System = "World"
     obj.Daylighting_Reference_Point_Coordinate_System = "World"
     obj.Rectangular_Surface_Coordinate_System = "World"
@@ -158,7 +158,7 @@ def convert_to_world_coord_sys(idf: IDF) -> None:
     zone_name2origin = {}
 
     # loop through all zone objects
-    for obj in idf.idfobjects["ZONE"]:
+    for obj in idf.idfobjects["Zone"]:
         # get the zone origin
         zone_name2origin[obj.Name] = (
             aark.ep.generic.get_field_val_as_float(obj, "X_Origin"),
@@ -171,7 +171,7 @@ def convert_to_world_coord_sys(idf: IDF) -> None:
         obj.Z_Origin = ""
 
     # loop through all detailed geometry objects
-    for cls_name in ("BUILDINGSURFACE:DETAILED", "FENESTRATIONSURFACE:DETAILED"):
+    for cls_name in ("BuildingSurface:Detailed", "FenestrationSurface:Detailed"):
         for obj in idf.idfobjects[cls_name]:
             # get the origin of the parent zone
             zone_obj = aark.ep.generic.get_zone_obj(obj)
@@ -187,9 +187,9 @@ def convert_to_world_coord_sys(idf: IDF) -> None:
     set_world_geom_rule(idf)
 
 
-#############################################################################
-#######                        SURFACE GENERIC                        #######
-#############################################################################
+# -----------------------------------------------------------------------------
+# Surface generic
+# -----------------------------------------------------------------------------
 
 
 def _make_pair_map(pairs: list[frozenset[str]]) -> dict[str, str]:
@@ -207,7 +207,7 @@ def _make_pair_map(pairs: list[frozenset[str]]) -> dict[str, str]:
     return dict(sorted(sorted(item) for item in set(pairs)))
 
 
-def get_pair_maps(base_idf: IDF) -> tuple[dict[str, str], dict[str, str]]:
+def get_pair_maps(idf: IDF) -> tuple[dict[str, str], dict[str, str]]:
     """Get maps of paired surface and subsurface names.
 
     Each pair is included once, with the key being the lexicographically smaller name.
@@ -215,7 +215,7 @@ def get_pair_maps(base_idf: IDF) -> tuple[dict[str, str], dict[str, str]]:
     # get surface map
     surface_name_pairs = [
         frozenset((obj.Name, obj.Outside_Boundary_Condition_Object))
-        for obj in base_idf.idfobjects["BUILDINGSURFACE:DETAILED"]
+        for obj in idf.idfobjects["BuildingSurface:Detailed"]
         if obj.Outside_Boundary_Condition == "Surface"
     ]
     surface2other_name = _make_pair_map(surface_name_pairs)
@@ -223,15 +223,15 @@ def get_pair_maps(base_idf: IDF) -> tuple[dict[str, str], dict[str, str]]:
     # get subsurface map
     subsurface_name_pairs = [
         frozenset((obj.Name, obj.Outside_Boundary_Condition_Object))
-        for obj in base_idf.idfobjects["FENESTRATIONSURFACE:DETAILED"]
+        for obj in idf.idfobjects["FenestrationSurface:Detailed"]
         if obj.Outside_Boundary_Condition_Object != ""
     ]
     subsurface2other_name = _make_pair_map(subsurface_name_pairs)
 
     # sanity check
     for a, b in subsurface2other_name.items():
-        a_obj = base_idf.getobject("FENESTRATIONSURFACE:DETAILED", a)
-        b_obj = base_idf.getobject("FENESTRATIONSURFACE:DETAILED", b)
+        a_obj = idf.getobject("FenestrationSurface:Detailed", a)
+        b_obj = idf.getobject("FenestrationSurface:Detailed", b)
 
         a_surface_name = a_obj.Building_Surface_Name
         b_surface_name = b_obj.Building_Surface_Name

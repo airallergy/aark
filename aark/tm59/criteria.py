@@ -1,4 +1,4 @@
-"""CIBSE TM59:2017 overheating assessment criteria."""
+"""TM59:2017 overheating assessment criteria."""
 # ruff: noqa: N803,N806
 
 from typing import TYPE_CHECKING
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from aark.arr import BoolArr1D, FloatArr1D, FloatArr2D
 
 
-CIBSE_GUIDE_A_TEMPERATURE_THRESHOLD = 26  # °C
+GUIDE_A_TEMPERATURE_THRESHOLD = 26  # °C
 COMMUNAL_CORRIDOR_TEMPERATURE_THRESHOLD = 28  # °C
 CRITERION_B_THRESHOLD = 1  # %
 MECHANICAL_VENT_THRESHOLD = 3  # %
@@ -111,7 +111,7 @@ def assess_criterion_a(
 ) -> dict[str, object]:
     """Assess TM59 criterion a.
 
-    Occupied hours exceeding the adaptive limit, from CIBSE TM52 criterion 1.
+    Occupied hours exceeding the adaptive limit, from TM52 criterion 1.
     """
     validate_category_not_3(category)
 
@@ -145,7 +145,7 @@ def assess_criterion_b(
 ) -> dict[str, object]:
     """Assess TM59 criterion b.
 
-    Sleeping hours exceeding 26 °C, from CIBSE Guide A.
+    Sleeping hours exceeding 26 °C, from Guide A.
     """
     Top = _parsed_non_adaptive_criterion_args(
         Top_1d, start_month_day, end_month_day, n_hourly_timesteps, is_leap
@@ -154,7 +154,7 @@ def assess_criterion_b(
     daily_asleep = ~get_daily_awake_mask(n_hourly_timesteps)
     result = calc_fixed_temperature_exceedance(
         Top[:, daily_asleep].ravel(),
-        CIBSE_GUIDE_A_TEMPERATURE_THRESHOLD,
+        GUIDE_A_TEMPERATURE_THRESHOLD,
         CRITERION_B_THRESHOLD,
         n_hourly_timesteps,
     )
@@ -177,7 +177,7 @@ def assess_mechanical_vent(
 ) -> dict[str, object]:
     """Assess TM59 criterion for mechanically ventilated homes.
 
-    Occupied hours exceeding 26 °C, from CIBSE Guide A.
+    Occupied hours exceeding 26 °C, from Guide A.
     """
     Top = _parsed_non_adaptive_criterion_args(
         Top_1d, start_month_day, end_month_day, n_hourly_timesteps, is_leap
@@ -194,7 +194,7 @@ def assess_mechanical_vent(
 
     result = calc_fixed_temperature_exceedance(
         Top[occupied],
-        CIBSE_GUIDE_A_TEMPERATURE_THRESHOLD,
+        GUIDE_A_TEMPERATURE_THRESHOLD,
         MECHANICAL_VENT_THRESHOLD,
         n_hourly_timesteps,
     )

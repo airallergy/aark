@@ -1,4 +1,4 @@
-"""CIBSE TM52:2013 adaptive overheating criteria."""
+"""TM52:2013 adaptive overheating criteria."""
 # ruff: noqa: N802,N803,N806
 
 from typing import TYPE_CHECKING

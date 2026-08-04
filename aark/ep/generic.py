@@ -49,12 +49,12 @@ def get_parent_obj(obj: EpBunch) -> EpBunch:
     match obj.key.upper():
         case "BUILDINGSURFACE:DETAILED":
             parent_name = obj.Zone_Name
-            parent_cls = "ZONE"
+            parent_cls = "Zone"
         case "FENESTRATIONSURFACE:DETAILED":
             parent_name = obj.Building_Surface_Name
-            parent_cls = "BUILDINGSURFACE:DETAILED"
-        case _ as cls_name:
-            raise ValueError(f"Unsupported class: {cls_name}.")
+            parent_cls = "BuildingSurface:Detailed"
+        case _:
+            raise ValueError(f"Unsupported class: {obj.key}.")
 
     parent_obj = obj.theidf.getobject(parent_cls, parent_name)
 
@@ -72,8 +72,8 @@ def get_zone_obj(obj: EpBunch) -> EpBunch:
         case "FENESTRATIONSURFACE:DETAILED":
             surface_obj = get_parent_obj(obj)
             return get_parent_obj(surface_obj)
-        case _ as cls_name:
-            raise ValueError(f"Unsupported class: {cls_name}.")
+        case _:
+            raise ValueError(f"Unsupported class: {obj.key}.")
 
 
 def get_field_default_val(obj: EpBunch, field_name: str) -> str | float | int:
@@ -127,7 +127,7 @@ def rstrip_empty_fields(obj: EpBunch) -> None:
 
 def validate_zones_exist_by_name(idf: IDF, zone_names: Iterable[str]) -> None:
     """Validate that zones exist in the idf by zone name."""
-    existing_zone_names = {str(obj.Name) for obj in idf.idfobjects["ZONE"]}
+    existing_zone_names = {str(obj.Name) for obj in idf.idfobjects["Zone"]}
     missing_zone_names = sorted(set(zone_names) - existing_zone_names)
     if missing_zone_names:
         raise ValueError(f"Missing zones: {missing_zone_names}.")

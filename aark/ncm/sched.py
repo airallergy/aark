@@ -402,7 +402,7 @@ def convert_scheds(  # noqa: PLR0915
         sched_type_name = sched_type_id2name[daily_sched_row.TYPE]
 
         # create and add the epJSON `Schedule:Day:Hourly` object
-        epjson_obj_body = {"sched_type_limits_name": sched_type_name}
+        epjson_obj_body = {"schedule_type_limits_name": sched_type_name}
         epjson_obj_body |= {
             f"hour_{i + 1}": getattr(daily_sched_row, f"h{i:02d}") for i in range(24)
         }

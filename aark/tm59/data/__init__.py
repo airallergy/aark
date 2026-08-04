@@ -1,4 +1,4 @@
-"""CIBSE TM59:2017 source data."""
+"""TM59:2017 source data."""
 
 import csv
 import importlib.resources
