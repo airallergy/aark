@@ -3,8 +3,8 @@
 from collections import Counter
 from typing import TYPE_CHECKING
 
-import aark
 import aark.ep.generic
+import aark.tm59
 from aark.tm59.data import (
     ALL_ROOM_TYPES,
     ANCILLARY_ROOM_TYPES,
@@ -28,8 +28,8 @@ if TYPE_CHECKING:
 
 def _uid(*args: str) -> str:
     """Build a standard aark-generated uid."""
-    uid = "_".join(("tm59", *(arg for arg in args if arg)))
-    return aark.prefix(uid)
+    uid = "_".join(arg for arg in args if arg)
+    return aark.tm59.prefix(uid)
 
 
 def gain_uid(gain_type: str, zone_name: str) -> str:

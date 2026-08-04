@@ -45,3 +45,18 @@ TM59:
 - Intra-dwelling doors are open when occupants are awake and closed otherwise. All other
   doors are closed.
 """
+
+import aark
+
+
+def prefix(s: str) -> str:
+    """Prepend the package namespace to a string."""
+    p = aark.prefix("tm59_")
+
+    if not s:
+        raise ValueError(f"Empty string: {s}.")
+
+    if s.casefold().startswith(p.casefold()):
+        raise ValueError(f"String already has a {p} prefix: {s}.")
+
+    return f"{p}{s}"
