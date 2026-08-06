@@ -45,24 +45,36 @@ def add_obj(idf: IDF, cls_name: str, **obj_fields: str) -> None:
             add_unnamed_obj(idf, cls_name, **obj_fields)
 
 
+def get_named_object(idf: IDF, cls_name: str, obj_name: str) -> EpBunch:
+    """Get a uniquely named object, raising if it is missing or duplicated."""
+    objs = [
+        obj
+        for obj in idf.idfobjects[cls_name]
+        if are_field_vals_equal(obj.Name, obj_name)
+    ]
+
+    if not objs:
+        raise ValueError(f"Missing {cls_name} object: {obj_name}.")
+
+    if len(objs) > 1:
+        raise ValueError(f"Duplicate {cls_name} object name: {obj_name}.")
+
+    return objs[0]
+
+
 def get_parent_obj(obj: EpBunch) -> EpBunch:
     """Get the parent object of an object."""
     match obj.key.upper():
         case "BUILDINGSURFACE:DETAILED":
-            parent_name = obj.Zone_Name
-            parent_cls = "Zone"
+            parent_obj_name = obj.Zone_Name
+            parent_cls_name = "Zone"
         case "FENESTRATIONSURFACE:DETAILED":
-            parent_name = obj.Building_Surface_Name
-            parent_cls = "BuildingSurface:Detailed"
+            parent_obj_name = obj.Building_Surface_Name
+            parent_cls_name = "BuildingSurface:Detailed"
         case _:
             raise ValueError(f"Unsupported class: {obj.key}.")
 
-    parent_obj = obj.theidf.getobject(parent_cls, parent_name)
-
-    if parent_obj is None:
-        raise ValueError(f"Missing {parent_cls} object: {parent_name}.")
-
-    return parent_obj
+    return get_named_object(obj.theidf, parent_cls_name, parent_obj_name)
 
 
 def get_zone_obj(obj: EpBunch) -> EpBunch:
@@ -139,14 +151,29 @@ def validate_zones_exist_by_name(idf: IDF, zone_names: Iterable[str]) -> None:
 # -----------------------------------------------------------------------------
 
 
+def are_field_vals_equal(val_1: str | float, val_2: str | float) -> bool:
+    """Return whether two field values are textually equal.
+
+    EnergyPlus uses uppercase to compare field values case-insensitively.
+    """
+    return str(val_1).upper().strip() == str(val_2).upper().strip()
+
+
+def has_named_obj(idf: IDF, cls_name: str, obj_name: str) -> bool:
+    """Return whether an object class contains a named object."""
+    return any(
+        are_field_vals_equal(obj.Name, obj_name) for obj in idf.idfobjects[cls_name]
+    )
+
+
 def named_obj_exists(
     idf: IDF, cls_name: str, obj_name: str, **other_obj_fields: str
 ) -> bool:
     """Check whether an identical named object exists."""
-    existing_obj = idf.getobject(cls_name, obj_name)
-
-    if existing_obj is None:
+    if not has_named_obj(idf, cls_name, obj_name):
         return False
+
+    existing_obj = get_named_object(idf, cls_name, obj_name)
 
     tmp_idf = type(idf)()
     tmp_idf.new()

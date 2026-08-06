@@ -230,8 +230,8 @@ def get_pair_maps(idf: IDF) -> tuple[dict[str, str], dict[str, str]]:
 
     # sanity check
     for a, b in subsurface2other_name.items():
-        a_obj = idf.getobject("FenestrationSurface:Detailed", a)
-        b_obj = idf.getobject("FenestrationSurface:Detailed", b)
+        a_obj = aark.ep.generic.get_named_object(idf, "FenestrationSurface:Detailed", a)
+        b_obj = aark.ep.generic.get_named_object(idf, "FenestrationSurface:Detailed", b)
 
         a_surface_name = a_obj.Building_Surface_Name
         b_surface_name = b_obj.Building_Surface_Name

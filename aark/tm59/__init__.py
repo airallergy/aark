@@ -56,7 +56,7 @@ def prefix(s: str) -> str:
     if not s:
         raise ValueError(f"Empty string: {s}.")
 
-    if s.casefold().startswith(p.casefold()):
+    if s.upper().startswith(p.upper()):
         raise ValueError(f"String already has a {p} prefix: {s}.")
 
     return f"{p}{s}"
