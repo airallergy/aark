@@ -1,5 +1,6 @@
 """TM59:2017 Section 5 internal gain profiles."""
 
+from collections import Counter
 from typing import TYPE_CHECKING
 
 import aark.ep.generic
@@ -7,10 +8,12 @@ import aark.ep.sched
 import aark.tm59.utils
 import aark.validation.ep
 from aark.tm59.data import (
+    ANCILLARY_ROOM_TYPES,
     BEDROOM_TYPES,
     COMMUNAL_CORRIDOR_TYPE,
     HABITABLE_ROOM_TYPES,
     INTERNAL_GAIN_PROFILES,
+    STUDIO_TYPE,
 )
 
 if TYPE_CHECKING:
@@ -19,7 +22,7 @@ if TYPE_CHECKING:
     from eppy.modeleditor import IDF
 
     from aark import MonthDay
-    from aark.tm59.utils import ZoneMap
+    from aark.tm59.utils import RoomMap
 
 
 def add_occupancy(
@@ -143,7 +146,7 @@ def add_lighting(
 
 
 def apply_dwelling(
-    idf: IDF, zone_map: ZoneMap, start_month_day: MonthDay, end_month_day: MonthDay
+    idf: IDF, zone_map: RoomMap, start_month_day: MonthDay, end_month_day: MonthDay
 ) -> None:
     """Apply the internal gain profiles to a dwelling."""
     n_bedrooms = sum(len(zone_map.get(room_type, ())) for room_type in BEDROOM_TYPES)
@@ -165,7 +168,7 @@ def apply_dwelling(
 
 
 def apply_communal_corridors(
-    idf: IDF, zone_map: ZoneMap, start_month_day: MonthDay, end_month_day: MonthDay
+    idf: IDF, zone_map: RoomMap, start_month_day: MonthDay, end_month_day: MonthDay
 ) -> None:
     """Apply the internal gain profiles to communal corridors."""
     for zone_name in zone_map[COMMUNAL_CORRIDOR_TYPE]:
@@ -174,26 +177,135 @@ def apply_communal_corridors(
 
 def apply(
     idf: IDF,
-    zone_maps: Mapping[str, ZoneMap],
+    zone_maps: Mapping[str, RoomMap],
     start_month_day: MonthDay = (1, 1),
     end_month_day: MonthDay = (12, 31),
 ) -> None:
     """Apply the internal gain profiles to the idf.
 
-    `aark` assumptions
-    ------------------
+    `aark` requirements
+    -------------------
     EnergyPlus version is 24.1 or later, with no `Space` object.
+
+    Notes
+    -----
+    A key user input is `zone_maps` with the conceptual type:
+
+    ```python
+    dict[str, dict[str, list[str]]]
+    ```
+
+    Each key is a dwelling name, and each value is a single `zone_map` representing either a
+    dwelling or a collection of communal corridors. Each `zone_map` key is a TM59 room type,
+    and each value is a list of zone names. An example of `zone_maps` is:
+
+    ```python
+    zone_maps = {
+    "flat_1": {
+        "living_kitchen": ["flat_1_living_kitchen"],
+        "double_bedroom": ["flat_1_bedroom_1", "flat_1_bedroom_2"],
+        "single_bedroom": ["flat_1_bedroom_3"],
+        "bathroom": ["flat_1_bathroom"],
+        "hall": ["flat_1_hall"],
+    },
+    "flat_2": {
+        "living": ["flat_2_living"],
+        "kitchen": ["flat_2_kitchen"],
+        "double_bedroom": ["flat_2_bedroom"],
+        "bathroom": ["flat_2_bathroom"],
+        "hall": ["flat_2_hall"],
+    },
+    "communal_corridor": {
+        "communal_corridor": [
+            "corridor_floor_1",
+            "corridor_floor_2",
+            "corridor_floor_3",
+        ]
+    },
+    }
+    ```
     """
     # validate aark assumptions
     aark.validation.ep.validate_ep_ver(idf)
     aark.validation.ep.validate_no_space(idf)
 
     # validate user inputs
-    aark.tm59.utils.validate_zone_maps(idf, zone_maps)
+    validate_zone_maps(idf, zone_maps)
 
     # apply to each dwelling or communal corridor
     for zone_map in zone_maps.values():
-        if aark.tm59.utils.is_communal_corridor_zone_map(zone_map):
+        if is_communal_corridor_zone_map(zone_map):
             apply_communal_corridors(idf, zone_map, start_month_day, end_month_day)
         else:
             apply_dwelling(idf, zone_map, start_month_day, end_month_day)
+
+
+# -----------------------------------------------------------------------------
+# Validation
+# -----------------------------------------------------------------------------
+
+
+def validate_zone_map(zone_map: RoomMap) -> None:
+    """Validate a room-to-zone map for applying internal gains."""
+    room_types = set(zone_map)
+    if COMMUNAL_CORRIDOR_TYPE in room_types:
+        # a communal corridor must not co-exist with dwelling room types
+        if room_types != {COMMUNAL_CORRIDOR_TYPE}:
+            raise ValueError(
+                f"Mixed communal corridor and dwelling room types: {room_types}."
+            )
+
+    elif STUDIO_TYPE in room_types:
+        # a studio must not co-exist with other habitable room types
+        if room_types - ({STUDIO_TYPE} | ANCILLARY_ROOM_TYPES):
+            raise ValueError(
+                f"Mixed studio and other habitable room types: {room_types}."
+            )
+
+        # a studio must not contain more than one studio zone
+        studio_zone_names = zone_map[STUDIO_TYPE]
+        if len(studio_zone_names) > 1:
+            raise ValueError(f"Multiple studios: {studio_zone_names}.")
+
+    else:
+        n_bedrooms = sum(
+            len(zone_map.get(room_type, ())) for room_type in BEDROOM_TYPES
+        )
+
+        if n_bedrooms == 0:
+            raise ValueError(f"Missing bedrooms: {zone_map}.")
+
+
+def validate_zone_maps(idf: IDF, zone_maps: Mapping[str, RoomMap]) -> None:
+    """Validate all room-to-zone maps for applying internal gains."""
+    # validate the structure of each zone map
+    for zone_map in zone_maps.values():
+        validate_zone_map(zone_map)
+
+    # get all zone names
+    zone_names = [
+        zone_name
+        for zone_map in zone_maps.values()
+        for zone_names in zone_map.values()
+        for zone_name in zone_names
+    ]
+
+    # all zone names must be unique across all zone maps
+    duplicate_names = sorted(
+        name for name, count in Counter(zone_names).items() if count > 1
+    )
+    if duplicate_names:
+        raise ValueError(f"Duplicate zone names: {duplicate_names}.")
+
+    # validate the existence of zone names in the idf
+    aark.ep.generic.validate_zone_names_exist(idf, zone_names)
+
+
+# -----------------------------------------------------------------------------
+# Predication
+# -----------------------------------------------------------------------------
+
+
+def is_communal_corridor_zone_map(zone_map: RoomMap) -> bool:
+    """Return whether a zone map represents communal corridors."""
+    return set(zone_map) == {COMMUNAL_CORRIDOR_TYPE}

@@ -138,7 +138,7 @@ def rstrip_empty_fields(obj: EpBunch) -> None:
 # -----------------------------------------------------------------------------
 
 
-def validate_zones_exist_by_name(idf: IDF, zone_names: Iterable[str]) -> None:
+def validate_zone_names_exist(idf: IDF, zone_names: Iterable[str]) -> None:
     """Validate that zones exist in the idf by zone name."""
     existing_zone_names = {str(obj.Name) for obj in idf.idfobjects["Zone"]}
     missing_zone_names = sorted(set(zone_names) - existing_zone_names)
