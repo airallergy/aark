@@ -1,6 +1,5 @@
 """TM59:2017 Section 5 internal gain profiles."""
 
-from collections import Counter
 from typing import TYPE_CHECKING
 
 import aark.ep.generic
@@ -286,23 +285,7 @@ def validate_zone_maps(idf: IDF, zone_maps: Sequence[RoomMap]) -> None:
     for zone_map in zone_maps:
         validate_zone_map(zone_map)
 
-    # get all zone names
-    zone_names = [
-        zone_name
-        for zone_map in zone_maps
-        for zone_names in zone_map.values()
-        for zone_name in zone_names
-    ]
-
-    # all zone names must be unique across all zone maps
-    duplicate_names = sorted(
-        name for name, count in Counter(zone_names).items() if count > 1
-    )
-    if duplicate_names:
-        raise ValueError(f"Duplicate zone names: {duplicate_names}.")
-
-    # validate the existence of zone names in the idf
-    aark.ep.generic.validate_zone_names_exist(idf, zone_names)
+    aark.tm59.utils.validate_mapped_obj_names(idf, "Zone", *zone_maps)
 
 
 # -----------------------------------------------------------------------------

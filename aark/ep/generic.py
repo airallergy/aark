@@ -5,8 +5,6 @@ from typing import TYPE_CHECKING
 import aark.ep.field
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-
     from eppy.bunch_subclass import EpBunch
     from eppy.modeleditor import IDF
 
@@ -104,19 +102,6 @@ def rstrip_obj(obj: EpBunch) -> None:
     # remove trailing empty fields
     while obj.fieldvalues[-1] == "":
         obj.fieldvalues.pop()
-
-
-# -----------------------------------------------------------------------------
-# Validation
-# -----------------------------------------------------------------------------
-
-
-def validate_zone_names_exist(idf: IDF, zone_names: Iterable[str]) -> None:
-    """Validate that zones exist in the idf by zone name."""
-    # NOTE: fast fail
-    for zone_name in zone_names:
-        if not has_named_obj(idf, "Zone", zone_name):
-            raise ValueError(f"Missing zone: {zone_name}.")
 
 
 # -----------------------------------------------------------------------------

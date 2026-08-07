@@ -291,9 +291,6 @@ def apply(
 
 def validate_fenestration_afn_opening(idf: IDF, fenestration_obj_name: str) -> None:
     """Validate the AFN opening linkage needed to control a fenestration."""
-    aark.ep.generic.get_named_object(
-        idf, "FenestrationSurface:Detailed", fenestration_obj_name
-    )
     afn_surface_obj = aark.ep.afn.get_surface_obj(idf, fenestration_obj_name)
 
     if not aark.ep.afn.is_opening_component(
@@ -332,6 +329,10 @@ def validate_window_map(idf: IDF, window_map: RoomMap) -> None:
             f"Invalid room types for window opening: {invalid_room_types}."
         )
 
+    aark.tm59.utils.validate_mapped_obj_names(
+        idf, "FenestrationSurface:Detailed", window_map
+    )
+
     window_obj_names = [name for names in window_map.values() for name in names]
     zone_names = []
     for window_obj_name in window_obj_names:
@@ -359,4 +360,9 @@ def validate_doors(idf: IDF, doors: Sequence[str]) -> None:
 
     # NOTE: fast fail
     for door_obj_name in doors:
+        # the door must exist in the idf
+        aark.ep.generic.get_named_object(
+            idf, "FenestrationSurface:Detailed", door_obj_name
+        )
+
         validate_fenestration_afn_opening(idf, door_obj_name)

@@ -1,13 +1,17 @@
 """Utility functions shared by the TM59 module."""
 
 import re
+from collections import Counter
 from typing import TYPE_CHECKING
 
+import aark.ep.generic
 import aark.tm59
 from aark.tm59.data import ALL_ROOM_TYPES
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
+
+    from eppy.modeleditor import IDF
 
     type RoomMap = Mapping[str, Sequence[str]]
 
@@ -78,3 +82,22 @@ def validate_room_map(room_map: RoomMap) -> None:
 
         if len(obj_names) == 0:
             raise ValueError(f"Empty object name sequence: {obj_names}.")
+
+
+def validate_mapped_obj_names(idf: IDF, cls_name: str, *room_maps: RoomMap) -> None:
+    """Validate that mapped object names are unique and exist in the idf."""
+    # get all mapped object names
+    obj_names = [
+        name for room_map in room_maps for names in room_map.values() for name in names
+    ]
+
+    # all object names must be unique
+    duplicate_names = sorted(
+        name for name, count in Counter(obj_names).items() if count > 1
+    )
+    if duplicate_names:
+        raise ValueError(f"Duplicate {cls_name} object names: {duplicate_names}.")
+
+    # all object names must exist in the idf
+    for obj_name in obj_names:
+        aark.ep.generic.get_named_object(idf, cls_name, obj_name)
