@@ -8,7 +8,12 @@ import numpy as np
 import aark
 import aark.arr
 import aark.tm52.criteria
-from aark import LEAP_REF_YEAR, NON_LEAP_REF_YEAR
+from aark import (
+    LEAP_REF_YEAR,
+    NON_LEAP_REF_YEAR,
+    YEAR_END_MONTH_DAY,
+    YEAR_START_MONTH_DAY,
+)
 from aark.tm59.data import AWAKE_END_HOUR, AWAKE_START_HOUR
 
 if TYPE_CHECKING:
@@ -42,7 +47,9 @@ def _parsed_non_adaptive_criterion_args(
     aark.arr.validate_finite(Top_1d)
     aark.validate_positive_n_timesteps(n_hourly_timesteps)
     aark.arr.validate_full_days(Top_1d, n_hourly_timesteps)
-    aark.tm52.criteria.validate_assessment_period(start_month_day, end_month_day)
+    aark.tm52.criteria.validate_assessment_period(
+        start_month_day, end_month_day, YEAR_START_MONTH_DAY, YEAR_END_MONTH_DAY
+    )
 
     # convert
     n_daily_timesteps = 24 * n_hourly_timesteps

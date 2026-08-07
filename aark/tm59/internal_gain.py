@@ -7,6 +7,7 @@ import aark.ep.generic
 import aark.ep.sched
 import aark.tm59.utils
 import aark.validation.ep
+from aark import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
 from aark.tm59.data import (
     ANCILLARY_ROOM_TYPES,
     BEDROOM_TYPES,
@@ -178,8 +179,8 @@ def apply_communal_corridors(
 def apply(
     idf: IDF,
     zone_maps: Mapping[str, RoomMap],
-    start_month_day: MonthDay = (1, 1),
-    end_month_day: MonthDay = (12, 31),
+    start_month_day: MonthDay = YEAR_START_MONTH_DAY,
+    end_month_day: MonthDay = YEAR_END_MONTH_DAY,
 ) -> None:
     """Apply the internal gain profiles to the idf.
 

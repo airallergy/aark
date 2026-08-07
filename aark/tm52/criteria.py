@@ -231,8 +231,8 @@ def apply_outputs(idf: IDF) -> None:
 def validate_assessment_period(
     start_month_day: MonthDay,
     end_month_day: MonthDay,
-    min_start_month_day: MonthDay = (1, 1),
-    max_end_month_day: MonthDay = (12, 31),
+    min_start_month_day: MonthDay,
+    max_end_month_day: MonthDay,
 ) -> None:
     """Validate that an assessment period lies within a permitted period."""
     if not (

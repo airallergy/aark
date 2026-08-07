@@ -45,6 +45,8 @@ __version__ = "0.1.0"
 
 LEAP_REF_YEAR = 2000
 NON_LEAP_REF_YEAR = 1995
+YEAR_START_MONTH_DAY = (1, 1)
+YEAR_END_MONTH_DAY = (12, 31)
 
 
 def prefix(s: str) -> str:

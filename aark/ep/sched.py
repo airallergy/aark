@@ -5,6 +5,7 @@ import itertools
 from typing import TYPE_CHECKING
 
 import aark.ep.generic
+from aark import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -70,8 +71,8 @@ def make_compact_block(through: MonthDay, hourly_vals: Sequence[str]) -> list[st
 
 def make_compact_blocks(
     hourly_vals: Sequence[str],
-    start_month_day: MonthDay = (1, 1),
-    end_month_day: MonthDay = (12, 31),
+    start_month_day: MonthDay = YEAR_START_MONTH_DAY,
+    end_month_day: MonthDay = YEAR_END_MONTH_DAY,
 ) -> list[list[str]]:
     """Create compact schedule blocks with zero values outside an active period."""
     # parse and validate two dates
@@ -86,7 +87,7 @@ def make_compact_blocks(
     zero_hourly_vals = ("0",) * 24
     blocks = []
 
-    if start_date != aark.as_date((1, 1)):
+    if start_date != aark.as_date(YEAR_START_MONTH_DAY):
         inactive_end_date = start_date - dt.timedelta(days=1)
         blocks.append(
             make_compact_block(
@@ -96,8 +97,8 @@ def make_compact_blocks(
 
     blocks.append(make_compact_block((end_date.month, end_date.day), hourly_vals))
 
-    if end_date != aark.as_date((12, 31)):
-        blocks.append(make_compact_block((12, 31), zero_hourly_vals))
+    if end_date != aark.as_date(YEAR_END_MONTH_DAY):
+        blocks.append(make_compact_block(YEAR_END_MONTH_DAY, zero_hourly_vals))
 
     return blocks
 

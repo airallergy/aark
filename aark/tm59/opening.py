@@ -9,6 +9,7 @@ import aark.ep.sched
 import aark.tm59
 import aark.tm59.utils
 import aark.validation.ep
+from aark import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
 from aark.tm59.data import (
     AWAKE_END_HOUR,
     AWAKE_START_HOUR,
@@ -223,8 +224,8 @@ def apply(
     idf: IDF,
     window_map: RoomMap,
     doors: Sequence[str],
-    start_month_day: MonthDay = (1, 1),
-    end_month_day: MonthDay = (12, 31),
+    start_month_day: MonthDay = YEAR_START_MONTH_DAY,
+    end_month_day: MonthDay = YEAR_END_MONTH_DAY,
 ) -> None:
     """Apply the window and door openings to the idf.
 
