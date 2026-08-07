@@ -18,7 +18,7 @@ from aark.tm59.data import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Sequence
 
     from eppy.modeleditor import IDF
 
@@ -178,7 +178,7 @@ def apply_communal_corridors(
 
 def apply(
     idf: IDF,
-    zone_maps: Mapping[str, RoomMap],
+    zone_maps: Sequence[RoomMap],
     start_month_day: MonthDay = YEAR_START_MONTH_DAY,
     end_month_day: MonthDay = YEAR_END_MONTH_DAY,
 ) -> None:
@@ -193,37 +193,37 @@ def apply(
     A key user input is `zone_maps` with the conceptual type:
 
     ```python
-    dict[str, dict[str, list[str]]]
+    list[dict[str, list[str]]]
     ```
 
-    Each key is a dwelling name, and each value is a single `zone_map` representing either a
-    dwelling or a collection of communal corridors. Each `zone_map` key is a TM59 room type,
-    and each value is a list of zone names. An example of `zone_maps` is:
+    Each item is a single `zone_map` representing either a dwelling or a collection of
+    communal corridors. Each `zone_map` key is a TM59 room type, and each value is a list of
+    zone names. An example of `zone_maps` is:
 
     ```python
-    zone_maps = {
-    "flat_1": {
+    zone_maps = [
+    {
         "living_kitchen": ["flat_1_living_kitchen"],
         "double_bedroom": ["flat_1_bedroom_1", "flat_1_bedroom_2"],
         "single_bedroom": ["flat_1_bedroom_3"],
         "bathroom": ["flat_1_bathroom"],
         "hall": ["flat_1_hall"],
     },
-    "flat_2": {
+    {
         "living": ["flat_2_living"],
         "kitchen": ["flat_2_kitchen"],
         "double_bedroom": ["flat_2_bedroom"],
         "bathroom": ["flat_2_bathroom"],
         "hall": ["flat_2_hall"],
     },
-    "communal_corridor": {
+    {
         "communal_corridor": [
             "corridor_floor_1",
             "corridor_floor_2",
             "corridor_floor_3",
         ]
     },
-    }
+    ]
     ```
     """
     # validate aark assumptions
@@ -234,7 +234,7 @@ def apply(
     validate_zone_maps(idf, zone_maps)
 
     # apply to each dwelling or communal corridor
-    for zone_map in zone_maps.values():
+    for zone_map in zone_maps:
         if is_communal_corridor_zone_map(zone_map):
             apply_communal_corridors(idf, zone_map, start_month_day, end_month_day)
         else:
@@ -280,16 +280,16 @@ def validate_zone_map(zone_map: RoomMap) -> None:
             raise ValueError(f"Missing bedrooms: {zone_map}.")
 
 
-def validate_zone_maps(idf: IDF, zone_maps: Mapping[str, RoomMap]) -> None:
+def validate_zone_maps(idf: IDF, zone_maps: Sequence[RoomMap]) -> None:
     """Validate all room-to-zone maps for applying internal gains."""
     # validate the structure of each zone map
-    for zone_map in zone_maps.values():
+    for zone_map in zone_maps:
         validate_zone_map(zone_map)
 
     # get all zone names
     zone_names = [
         zone_name
-        for zone_map in zone_maps.values()
+        for zone_map in zone_maps
         for zone_names in zone_map.values()
         for zone_name in zone_names
     ]
