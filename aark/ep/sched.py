@@ -78,9 +78,9 @@ def make_compact_blocks(
     start_date = aark.as_date(start_month_day)
     end_date = aark.as_date(end_month_day)
 
-    if start_date >= end_date:
+    if start_date > end_date:
         raise ValueError(
-            f"Start month-day must be before end month-day: {start_month_day}, {end_month_day}."
+            f"Start month-day must not be after end month-day: {start_month_day}, {end_month_day}."
         )
 
     zero_hourly_vals = ("0",) * 24
