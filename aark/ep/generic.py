@@ -2,6 +2,8 @@
 
 from typing import TYPE_CHECKING
 
+import aark.ep.field
+
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
@@ -50,7 +52,7 @@ def get_named_object(idf: IDF, cls_name: str, obj_name: str) -> EpBunch:
     objs = [
         obj
         for obj in idf.idfobjects[cls_name]
-        if are_field_vals_equal(obj.Name, obj_name)
+        if aark.ep.field.equal(obj_name, obj, "Name")
     ]
 
     if not objs:
@@ -89,46 +91,17 @@ def get_zone_obj(obj: EpBunch) -> EpBunch:
             raise ValueError(f"Unsupported class: {obj.key}.")
 
 
-def get_field_default_val(obj: EpBunch, field_name: str) -> str | float | int:
-    """Get the default value of a field."""
-    vals = obj.getfieldidd_item(field_name, "default")
-
-    if not vals:
-        raise ValueError(f"No default value: {obj.key}.{field_name}.")
-
-    (val,) = vals
-    assert isinstance(val, (str, float, int))  # eppy typing
-    return val
-
-
-def get_field_val_as_float(obj: EpBunch, field_name: str) -> float:
-    """Get a real field value as float."""
-    # sanity check
-    if obj.getfieldidd_item(field_name, "type") != ["real"]:
-        raise ValueError(f"Field is not a real number: {obj.key}.{field_name}.")
-
-    # get the field value
-    val = getattr(obj, field_name)
-
-    # set default value if the field is empty
-    if val == "":
-        val = get_field_default_val(obj, field_name)
-
-    # convert to float
-    return float(val)
-
-
-def rstrip_empty_fields(obj: EpBunch) -> None:
+def rstrip_obj(obj: EpBunch) -> None:
     """Remove trailing empty fields of an object."""
-    # Remove leading/trailing whitespace from string field values
+    # remove leading/trailing whitespace from string field values
     obj.fieldvalues[:] = [
-        item.strip() if isinstance(item, str) else item for item in obj.fieldvalues
+        val.strip() if isinstance(val, str) else val for val in obj.fieldvalues
     ]  # obj.fieldvalues cannot be reassigned directly
 
     if all(val == "" for val in obj.fieldvalues[1:]):
         raise ValueError(f"Object is empty: {obj}.")
 
-    # Remove trailing empty fields
+    # remove trailing empty fields
     while obj.fieldvalues[-1] == "":
         obj.fieldvalues.pop()
 
@@ -140,10 +113,10 @@ def rstrip_empty_fields(obj: EpBunch) -> None:
 
 def validate_zone_names_exist(idf: IDF, zone_names: Iterable[str]) -> None:
     """Validate that zones exist in the idf by zone name."""
-    existing_zone_names = {str(obj.Name) for obj in idf.idfobjects["Zone"]}
-    missing_zone_names = sorted(set(zone_names) - existing_zone_names)
-    if missing_zone_names:
-        raise ValueError(f"Missing zones: {missing_zone_names}.")
+    # NOTE: fast fail
+    for zone_name in zone_names:
+        if not has_named_obj(idf, "Zone", zone_name):
+            raise ValueError(f"Missing zone: {zone_name}.")
 
 
 # -----------------------------------------------------------------------------
@@ -151,25 +124,17 @@ def validate_zone_names_exist(idf: IDF, zone_names: Iterable[str]) -> None:
 # -----------------------------------------------------------------------------
 
 
-def are_field_vals_equal(val_1: str | float, val_2: str | float) -> bool:
-    """Return whether two field values are textually equal.
-
-    EnergyPlus uses uppercase to compare field values case-insensitively.
-    """
-    return str(val_1).upper().strip() == str(val_2).upper().strip()
-
-
 def has_named_obj(idf: IDF, cls_name: str, obj_name: str) -> bool:
     """Return whether an object class contains a named object."""
     return any(
-        are_field_vals_equal(obj.Name, obj_name) for obj in idf.idfobjects[cls_name]
+        aark.ep.field.equal(obj_name, obj, "Name") for obj in idf.idfobjects[cls_name]
     )
 
 
 def named_obj_exists(
     idf: IDF, cls_name: str, obj_name: str, **other_obj_fields: str
 ) -> bool:
-    """Check whether an identical named object exists."""
+    """Return whether an identical named object exists."""
     if not has_named_obj(idf, cls_name, obj_name):
         return False
 
@@ -190,7 +155,7 @@ def named_obj_exists(
 
 
 def unnamed_obj_exists(idf: IDF, cls_name: str, **obj_fields: str) -> bool:
-    """Check whether an identical unnamed object exists."""
+    """Return whether an identical unnamed object exists."""
     tmp_idf = type(idf)()
     tmp_idf.new()
     tmp_obj = tmp_idf.newidfobject(cls_name, defaultvalues=False, **obj_fields)

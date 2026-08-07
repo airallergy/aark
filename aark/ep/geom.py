@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+import aark.ep.field
 import aark.ep.generic
 import aark.validation.ep
 
@@ -161,9 +162,9 @@ def convert_to_world_coord_sys(idf: IDF) -> None:
     for obj in idf.idfobjects["Zone"]:
         # get the zone origin
         zone_name2origin[obj.Name] = (
-            aark.ep.generic.get_field_val_as_float(obj, "X_Origin"),
-            aark.ep.generic.get_field_val_as_float(obj, "Y_Origin"),
-            aark.ep.generic.get_field_val_as_float(obj, "Z_Origin"),
+            aark.ep.field.as_float(obj, "X_Origin"),
+            aark.ep.field.as_float(obj, "Y_Origin"),
+            aark.ep.field.as_float(obj, "Z_Origin"),
         )
 
         obj.X_Origin = ""
@@ -216,7 +217,7 @@ def get_pair_maps(idf: IDF) -> tuple[dict[str, str], dict[str, str]]:
     surface_name_pairs = [
         frozenset((obj.Name, obj.Outside_Boundary_Condition_Object))
         for obj in idf.idfobjects["BuildingSurface:Detailed"]
-        if obj.Outside_Boundary_Condition == "Surface"
+        if aark.ep.field.equal("Surface", obj, "Outside_Boundary_Condition")
     ]
     surface2other_name = _make_pair_map(surface_name_pairs)
 
@@ -224,7 +225,7 @@ def get_pair_maps(idf: IDF) -> tuple[dict[str, str], dict[str, str]]:
     subsurface_name_pairs = [
         frozenset((obj.Name, obj.Outside_Boundary_Condition_Object))
         for obj in idf.idfobjects["FenestrationSurface:Detailed"]
-        if obj.Outside_Boundary_Condition_Object != ""
+        if not aark.ep.field.equal("", obj, "Outside_Boundary_Condition_Object")
     ]
     subsurface2other_name = _make_pair_map(subsurface_name_pairs)
 
