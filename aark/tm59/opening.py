@@ -304,6 +304,24 @@ def validate_fenestration_afn_opening(idf: IDF, fenestration_obj_name: str) -> N
         )
 
 
+def validate_erl_uids(*src_names: str) -> None:
+    """Validate that unique source names produce unique Erl uids."""
+    unique_src_names = set(src_names)
+
+    # NOTE: even when object names in room maps exactly match a valid IDF, removing
+    # unsupported characters can leave distinct names differing only by case:
+    # `Window-A` and `windowa` become `WindowA` and `windowa`. Erl identifiers are
+    # case insensitive, so uids must be converted to uppercase before comparison.
+    unique_erl_uids = {
+        aark.tm59.utils.erl_uid("7", src_name).upper() for src_name in unique_src_names
+    }
+
+    if len(unique_src_names) != len(unique_erl_uids):
+        raise ValueError(
+            f"Source names produce duplicate Erl uids: {unique_src_names}."
+        )
+
+
 def validate_window_map(idf: IDF, window_map: RoomMap) -> None:
     """Validate a window map for applying external window opening."""
     aark.tm59.utils.validate_room_map(window_map)
@@ -314,10 +332,21 @@ def validate_window_map(idf: IDF, window_map: RoomMap) -> None:
             f"Invalid room types for window opening: {invalid_room_types}."
         )
 
+    window_obj_names = [name for names in window_map.values() for name in names]
+    zone_names = []
+    for window_obj_name in window_obj_names:
+        window_obj = aark.ep.generic.get_named_object(
+            idf, "FenestrationSurface:Detailed", window_obj_name
+        )
+        zone_names.append(aark.ep.generic.get_zone_obj(window_obj).Name)
+
+    validate_erl_uids(*zone_names)
+    validate_erl_uids(*window_obj_names)
+    validate_erl_uids(*window_map)
+
     # NOTE: fast fail
-    for window_obj_names in window_map.values():
-        for window_obj_name in window_obj_names:
-            validate_fenestration_afn_opening(idf, window_obj_name)
+    for window_obj_name in window_obj_names:
+        validate_fenestration_afn_opening(idf, window_obj_name)
 
 
 def validate_doors(idf: IDF, doors: Sequence[str]) -> None:

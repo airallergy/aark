@@ -13,6 +13,8 @@ equality of field values as follows.
   - For existing objects in the IDF where some reference others by name, the object
     names and their reference names are exactly equal in case and surrounding
     whitespace.
+  - Object names in room maps exactly match their IDF object names in case and
+    surrounding whitespace.
 
 - Looks up field values in the input IDF considering case and surrounding whitespace.
 

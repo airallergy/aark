@@ -19,8 +19,12 @@ if TYPE_CHECKING:
 
 def _uid(*args: str) -> str:
     """Build a standard aark-generated uid."""
-    uid = "_".join(arg for arg in args if arg)
-    return aark.tm59.prefix(uid)
+    args = tuple(arg for arg in args if arg)
+
+    if not args:
+        raise ValueError(f"Empty uid arguments: {args}.")
+
+    return aark.tm59.prefix("_".join(args))
 
 
 def gain_uid(gain_type: str, zone_name: str) -> str:
@@ -35,10 +39,16 @@ def sched_uid(sched_type: str, room_type: str = "") -> str:
 
 def erl_uid(kind: str, src_name: str) -> str:
     """Build an Erl-compatible uid."""
+    _src_name = src_name
+
     if any(char.isspace() for char in src_name):
         src_name = "".join(part[:1].upper() + part[1:] for part in src_name.split())
 
     src_name = re.sub(r"[^A-Za-z0-9_]", "", src_name)
+
+    if not src_name:
+        raise ValueError(f"Invalid source name: {_src_name}.")
+
     return _uid(kind, src_name)
 
 
