@@ -247,7 +247,10 @@ def apply(
 
 def validate_zone_map(zone_map: RoomMap) -> None:
     """Validate a room-to-zone map for applying internal gains."""
+    aark.tm59.utils.validate_room_map(zone_map)
+
     room_types = set(zone_map)
+
     if COMMUNAL_CORRIDOR_TYPE in room_types:
         # a communal corridor must not co-exist with dwelling room types
         if room_types != {COMMUNAL_CORRIDOR_TYPE}:
