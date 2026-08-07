@@ -14,6 +14,8 @@ from aark.tm59.data import AWAKE_END_HOUR, AWAKE_START_HOUR
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from eppy.modeleditor import IDF
+
     from aark import MonthDay
     from aark.arr import BoolArr1D, FloatArr1D, FloatArr2D
 
@@ -228,6 +230,16 @@ def assess_communal_corridor(
         COMMUNAL_CORRIDOR_THRESHOLD,
         n_hourly_timesteps,
     )
+
+
+# -----------------------------------------------------------------------------
+# Outputs
+# -----------------------------------------------------------------------------
+
+
+def apply_outputs(idf: IDF) -> None:
+    """Add the EnergyPlus outputs required to assess the TM59 criteria."""
+    aark.tm52.criteria.apply_outputs(idf)
 
 
 # -----------------------------------------------------------------------------

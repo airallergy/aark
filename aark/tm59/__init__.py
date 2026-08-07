@@ -11,6 +11,8 @@ TM59:
   doors are closed.
 - Window opening requires the room to be occupied and its occupants to be awake.
 - Available windows are fully open above 22 °C and fully closed otherwise.
+- The sleeping period is 23:00 - 08:00 in line with the internal gain profiles; the
+  22:00 - 07:00 period in criterion (b) is treated as a typo.
 """
 
 import aark

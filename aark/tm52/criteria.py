@@ -1,4 +1,4 @@
-"""TM52:2013 adaptive overheating criteria."""
+"""TM52:2013 assessment criteria."""
 # ruff: noqa: N802,N803,N806
 
 from typing import TYPE_CHECKING
@@ -7,9 +7,13 @@ import numpy as np
 
 import aark
 import aark.arr
+import aark.ep.generic
+import aark.tm52.adaptive
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
+
+    from eppy.modeleditor import IDF
 
     from aark import MonthDay
     from aark.arr import BoolArr2D, FloatArr1D, FloatArr2D
@@ -20,6 +24,7 @@ SUMMER_END_MONTH_DAY = (9, 30)
 CRITERION_1_THRESHOLD = 3  # %
 CRITERION_2_THRESHOLD = 6  # K h
 CRITERION_3_THRESHOLD = 4  # K
+OUTPUT_VAR_NAMES = ("Zone Operative Temperature", "Zone People Occupant Count")
 
 
 def _parsed_criterion_args(
@@ -44,7 +49,7 @@ def _parsed_criterion_args(
     validate_assessment_period(
         start_month_day, end_month_day, SUMMER_START_MONTH_DAY, SUMMER_END_MONTH_DAY
     )
-    validate_category(category)
+    aark.tm52.adaptive.validate_category(category)
 
     # convert
     n_daily_timesteps = 24 * n_hourly_timesteps
@@ -54,7 +59,7 @@ def _parsed_criterion_args(
     occupancy = occupancy_1d.reshape((-1, n_daily_timesteps))
 
     # convert more
-    Tmax = _calc_Tmax(Trm, category)
+    Tmax = aark.tm52.adaptive.calc_Tmax(Trm, category)
     occupied = occupancy > 0
 
     # validate more
@@ -70,70 +75,6 @@ def _parsed_criterion_args(
     aark.arr.validate_equal_shape(Top, occupancy, datetimes_2d, Tmax_2d)
 
     return _calc_deltaT(Top, Tmax), occupied, n_hourly_timesteps
-
-
-# -----------------------------------------------------------------------------
-# BS EN 15251:2007
-# -----------------------------------------------------------------------------
-
-
-def calc_Trm(Tod_1d: Iterable[float]) -> FloatArr1D:
-    """Calculate daily exponentially weighted running mean temperature.
-
-    Notes
-    -----
-    The final seven days of the provided one-year daily mean outdoor air
-    temperature data are used to initialise `Trm`.
-
-    The recurrence is vectorised. For example, with `alpha = 0.8`:
-
-    ```python
-    Trm[i + 1] = 0.8 * Trm[i] + 0.2 * Tod[i]
-    ```
-
-    Let `k[i] = 0.2 * Tod[i]`. Expanding the recurrence gives:
-
-    ```python
-    Trm[1] = 0.8 * Trm[0] + 0.8 ** 0 * k[0]
-    Trm[2] = 0.8 ** 2 * Trm[0] + 0.8 ** 1 * k[0] + 0.8 ** 0 * k[1]
-    ```
-
-    Therefore:
-
-    ```python
-    Trm[i + 1] = np.dot(
-        [0.8 ** (i + 1), 0.8 ** i, ..., 0.8 ** 0],
-        [Trm[0], k[0], k[1], ..., k[i]],
-    )
-    ```
-    """
-    alpha = 0.8
-
-    # normalise
-    Tod = aark.arr.as_1d(Tod_1d)
-
-    # validate
-    aark.arr.validate_finite(Tod)
-
-    if Tod.size not in (365, 366):
-        raise ValueError(
-            f"Tod must contain a complete year of 365 or 366 days: {Tod.size}."
-        )
-
-    # TM52 equation 2.3 is a fixed seven-day approximation for alpha = 0.8.
-    init_weights = np.array((1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2))
-    init_Trm = np.dot(init_weights, Tod[-1:-8:-1]) / 3.8
-
-    weights = np.power(alpha, range(Tod.size, 0, -1))
-    k = (1 - alpha) * Tod[:-1]
-    terms = np.append(init_Trm, k)
-
-    return np.add.accumulate(weights * terms) / weights
-
-
-def _calc_Tmax(Trm: FloatArr1D, category: int) -> FloatArr1D:
-    """Calculate the maximum acceptable operative temperature."""
-    return 0.33 * Trm + 21.8 + (category - 2)
 
 
 def _calc_deltaT(Top: FloatArr2D, Tmax: FloatArr1D) -> FloatArr2D:
@@ -266,14 +207,25 @@ def assess_criterion_3(
 
 
 # -----------------------------------------------------------------------------
-# Validation
+# Outputs
 # -----------------------------------------------------------------------------
 
 
-def validate_category(category: int) -> None:
-    """Validate an adaptive comfort category."""
-    if category not in (1, 2, 3):
-        raise ValueError(f"Invalid adaptive category: {category}.")
+def apply_outputs(idf: IDF) -> None:
+    """Add the EnergyPlus outputs required to assess the TM52 criteria."""
+    for var_name in OUTPUT_VAR_NAMES:
+        aark.ep.generic.add_obj(
+            idf,
+            "Output:Variable",
+            Key_Value="*",
+            Variable_Name=var_name,
+            Reporting_Frequency="Hourly",
+        )
+
+
+# -----------------------------------------------------------------------------
+# Validation
+# -----------------------------------------------------------------------------
 
 
 def validate_assessment_period(
