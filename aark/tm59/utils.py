@@ -1,5 +1,6 @@
 """Utility functions shared by the TM59 module."""
 
+import re
 from typing import TYPE_CHECKING
 
 import aark.tm59
@@ -30,6 +31,15 @@ def gain_uid(gain_type: str, zone_name: str) -> str:
 def sched_uid(sched_type: str, room_type: str = "") -> str:
     """Build the uid of an internal gain schedule."""
     return _uid(sched_type, room_type)
+
+
+def erl_uid(kind: str, src_name: str) -> str:
+    """Build an Erl-compatible uid."""
+    if any(char.isspace() for char in src_name):
+        src_name = "".join(part[:1].upper() + part[1:] for part in src_name.split())
+
+    src_name = re.sub(r"[^A-Za-z0-9_]", "", src_name)
+    return _uid(kind, src_name)
 
 
 # -----------------------------------------------------------------------------
