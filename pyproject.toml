@@ -23,12 +23,14 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-
 [project.urls]
 repository = "https://github.com/airallergy/aark"
 
 [dependency-groups]
 dev = ["mypy~=2.1", "pytest-cov==7.*", "pytest==9.*", "ruff==0.15.*"]
+
+[tool.ruff]
+target-version = "py314"
 
 [tool.ruff.lint]
 select = [

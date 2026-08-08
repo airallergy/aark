@@ -1,5 +1,4 @@
 """BS EN 15251:2007 adaptive comfort calculations."""
-# ruff: noqa: N802,N803,N806
 
 from typing import TYPE_CHECKING
 

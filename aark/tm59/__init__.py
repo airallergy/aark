@@ -1,5 +1,15 @@
 """Technical Memorandum 59 2017 (TM59:2017): https://www.cibse.org/knowledge-research/knowledge-portal/technical-memorandum-59-design-methodology-for-the-assessment-of-overheating-risk-in-homes.
 
+Nomenclature
+------------
+Trm
+    Exponentially weighted running mean outdoor air temperature, degrees
+    Celsius.
+Top
+    Indoor operative temperature, degrees Celsius.
+Ta
+    Indoor air temperature, degrees Celsius.
+
 Notes
 -----
 The following modelling assumptions are used by `aark` but not explicitly specified by

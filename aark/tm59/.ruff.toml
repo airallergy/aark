@@ -1,0 +1,9 @@
+extend = "../../pyproject.toml"
+
+[lint.pep8-naming]
+extend-ignore-names = [
+    "{Trm,Top,Ta}",
+    "{Trm,Top,Ta}_*",
+    "*_{Trm,Top,Ta}",
+    "*_{Trm,Top,Ta}_*",
+]

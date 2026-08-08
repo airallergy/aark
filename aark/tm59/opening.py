@@ -1,5 +1,4 @@
 """TM59:2017 Section 3.3 window and door openings."""
-# ruff: noqa: N806
 
 from typing import TYPE_CHECKING
 

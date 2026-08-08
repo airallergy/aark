@@ -1,5 +1,4 @@
 """TM59:2017 overheating assessment criteria."""
-# ruff: noqa: N803,N806
 
 from typing import TYPE_CHECKING
 
