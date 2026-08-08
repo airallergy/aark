@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+import aark.ep._pact
 import aark.ep.field
 import aark.ep.obj
-import aark.validation.ep
 
 if TYPE_CHECKING:
     from eppy.bunch_subclass import EpBunch
@@ -152,8 +152,8 @@ def convert_to_world_coord_sys(idf: IDF) -> None:
     `Building North Axis` and `Zone Direction of Relative North` are zero or unused.
     """
     # validate aark assumptions
-    aark.validation.ep.validate_no_building_rel_north(idf)
-    aark.validation.ep.validate_no_zone_rel_north(idf)
+    aark.ep._pact.validate_no_building_rel_north(idf)
+    aark.ep._pact.validate_no_zone_rel_north(idf)
 
     # initialise a map of zone names to origins
     zone_name2origin = {}

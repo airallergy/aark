@@ -36,13 +36,18 @@ def get_surface_obj(idf: IDF, surface_name: str) -> EpBunch:
 
 
 # -----------------------------------------------------------------------------
-# Predication
+# Validation
 # -----------------------------------------------------------------------------
 
 
-def is_opening_component(idf: IDF, component_obj_name: str) -> bool:
-    """Return whether a name refers to an Airflow Network opening component."""
-    return any(
-        aark.ep.obj.has_named(idf, cls_name, component_obj_name)
+def validate_opening(idf: IDF, fenestration_name: str) -> None:
+    """Validate a fenestration has an Airflow Network opening component object."""
+    afn_surface_obj = get_surface_obj(idf, fenestration_name)
+
+    if not any(
+        aark.ep.obj.has_named(idf, cls_name, afn_surface_obj.Leakage_Component_Name)
         for cls_name in OPENING_COMPONENT_CLS_NAMES
-    )
+    ):
+        raise ValueError(
+            f"Fenestration has no Airflow Network opening component: {fenestration_name}."
+        )

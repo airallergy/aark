@@ -2,11 +2,11 @@
 
 from typing import TYPE_CHECKING
 
+import aark.ep._pact
 import aark.ep.afn
 import aark.ep.obj
 import aark.ep.sched
 import aark.tm59._utils
-import aark.validation.ep
 from aark._utils import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
 from aark.ep.field import MAX_EP_STR_FIELD_LEN
 from aark.tm59.data import (
@@ -49,7 +49,7 @@ def _get_avail_hourly_factors(room_type: str) -> tuple[str, ...]:
 def _add_program_to_calling_manager(idf: IDF, program_obj_name: str) -> None:
     """Add a program to the model-level window program calling manager."""
     calling_manager_cls_name = "EnergyManagementSystem:ProgramCallingManager"
-    calling_manager_obj_name = aark.tm59._utils.prefix("window_opening")
+    calling_manager_obj_name = aark.tm59._utils.prefix("window_vent")
     calling_point = "BeginTimestepBeforePredictor"
 
     if aark.ep.obj.has_named(idf, calling_manager_cls_name, calling_manager_obj_name):
@@ -88,12 +88,12 @@ def _add_window(
     end_month_day: MonthDay,
 ) -> None:
     """Add control for the window."""
-    window_obj_name = afn_surface_obj.Surface_Name
+    window_name = afn_surface_obj.Surface_Name
     avail_sched_obj_name = aark.tm59._utils.prefix(f"window_avail_{room_type}")
     avail_sensor_obj_name = aark.tm59._utils.erl_uid("window_avail", room_type)
     Ta_sensor_obj_name = aark.tm59._utils.erl_uid("Ta", zone_name)
-    actuator_obj_name = aark.tm59._utils.erl_uid("opening_factor", window_obj_name)
-    program_obj_name = aark.tm59._utils.erl_uid("opening", window_obj_name)
+    actuator_obj_name = aark.tm59._utils.erl_uid("vent_factor", window_name)
+    program_obj_name = aark.tm59._utils.erl_uid("vent", window_name)
     program_lines = (
         f"IF {avail_sensor_obj_name} > 0",
         f"IF {Ta_sensor_obj_name} > {WINDOW_OPENING_THRESHOLD}",
@@ -149,7 +149,7 @@ def _add_window(
         idf,
         "EnergyManagementSystem:Actuator",
         Name=actuator_obj_name,
-        Actuated_Component_Unique_Name=window_obj_name,
+        Actuated_Component_Unique_Name=window_name,
         Actuated_Component_Type="AirFlow Network Window/Door Opening",
         Actuated_Component_Control_Type="Venting Opening Factor",
     )
@@ -174,14 +174,14 @@ def _apply_external_windows(
     External windows refer to external glazed openings, including windows and
     patio doors, in habitable rooms.
     """
-    for room_type, window_obj_names in window_map.items():
-        for window_obj_name in window_obj_names:
+    for room_type, window_names in window_map.items():
+        for window_name in window_names:
             window_obj = aark.ep.obj.get_named(
-                idf, "FenestrationSurface:Detailed", window_obj_name
+                idf, "FenestrationSurface:Detailed", window_name
             )
             zone_name = aark.ep.obj.get_zone(window_obj).Name
 
-            afn_surface_obj = aark.ep.afn.get_surface_obj(idf, window_obj_name)
+            afn_surface_obj = aark.ep.afn.get_surface_obj(idf, window_name)
 
             _add_window(
                 idf,
@@ -208,8 +208,8 @@ def _apply_internal_doors(
     )
     aark.ep.sched.add_compact_obj(idf, sched_obj_name, "On/Off", *sched_blocks)
 
-    for door_obj_name in doors:
-        afn_surface_obj = aark.ep.afn.get_surface_obj(idf, door_obj_name)
+    for door_name in doors:
+        afn_surface_obj = aark.ep.afn.get_surface_obj(idf, door_name)
 
         # modify the AFN surface object
         afn_surface_obj.WindowDoor_Opening_Factor_or_Crack_Factor = "1"
@@ -270,8 +270,8 @@ def apply(
     ```
     """
     # validate aark assumptions
-    aark.validation.ep.validate_ep_ver(idf)
-    aark.validation.ep.validate_no_space(idf)
+    aark.ep._pact.validate_ep_ver(idf)
+    aark.ep._pact.validate_no_space(idf)
 
     # validate user inputs
     _validate_window_map(idf, window_map)
@@ -284,18 +284,6 @@ def apply(
 # -----------------------------------------------------------------------------
 # Validation
 # -----------------------------------------------------------------------------
-
-
-def _validate_fenestration_afn_opening(idf: IDF, fenestration_obj_name: str) -> None:
-    """Validate the AFN opening linkage needed to control a fenestration."""
-    afn_surface_obj = aark.ep.afn.get_surface_obj(idf, fenestration_obj_name)
-
-    if not aark.ep.afn.is_opening_component(
-        idf, str(afn_surface_obj.Leakage_Component_Name)
-    ):
-        raise ValueError(
-            f"Fenestration has no Airflow Network opening component: {fenestration_obj_name}."
-        )
 
 
 def _validate_erl_uids(*src_names: str) -> None:
@@ -330,21 +318,21 @@ def _validate_window_map(idf: IDF, window_map: RoomMap) -> None:
         idf, "FenestrationSurface:Detailed", window_map
     )
 
-    window_obj_names = [name for names in window_map.values() for name in names]
+    window_names = [name for names in window_map.values() for name in names]
     zone_names = []
-    for window_obj_name in window_obj_names:
+    for window_name in window_names:
         window_obj = aark.ep.obj.get_named(
-            idf, "FenestrationSurface:Detailed", window_obj_name
+            idf, "FenestrationSurface:Detailed", window_name
         )
         zone_names.append(aark.ep.obj.get_zone(window_obj).Name)
 
     _validate_erl_uids(*zone_names)
-    _validate_erl_uids(*window_obj_names)
+    _validate_erl_uids(*window_names)
     _validate_erl_uids(*window_map)
 
     # NOTE: fast fail
-    for window_obj_name in window_obj_names:
-        _validate_fenestration_afn_opening(idf, window_obj_name)
+    for window_name in window_names:
+        aark.ep.afn.validate_opening(idf, window_name)
 
 
 def _validate_doors(idf: IDF, doors: Sequence[str]) -> None:
@@ -356,8 +344,8 @@ def _validate_doors(idf: IDF, doors: Sequence[str]) -> None:
         raise TypeError(f"Invalid door sequence: {doors}.")
 
     # NOTE: fast fail
-    for door_obj_name in doors:
+    for door_name in doors:
         # the door must exist in the idf
-        aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", door_obj_name)
+        aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", door_name)
 
-        _validate_fenestration_afn_opening(idf, door_obj_name)
+        aark.ep.afn.validate_opening(idf, door_name)

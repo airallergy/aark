@@ -44,9 +44,9 @@ def _parsed_non_adaptive_criterion_args(
 
     # validate
     aark.arr.validate_finite(Top_1d)
-    aark._utils.validate_positive_n_timesteps(n_hourly_timesteps)
+    aark._utils.validate_n_timesteps(n_hourly_timesteps)
     aark.arr.validate_full_days(Top_1d, n_hourly_timesteps)
-    aark._utils.validate_assessment_period(
+    aark._utils.validate_subperiod(
         start_month_day, end_month_day, YEAR_START_MONTH_DAY, YEAR_END_MONTH_DAY
     )
 
@@ -70,7 +70,7 @@ def _parsed_non_adaptive_criterion_args(
 
 def _get_daily_awake_mask(n_hourly_timesteps: int) -> BoolArr1D:
     """Return the daily awake mask."""
-    aark._utils.validate_positive_n_timesteps(n_hourly_timesteps)
+    aark._utils.validate_n_timesteps(n_hourly_timesteps)
 
     hour_idxs = np.arange(24, dtype=int)
     hourly_mask = (hour_idxs >= AWAKE_START_HOUR) & (hour_idxs < AWAKE_END_HOUR)

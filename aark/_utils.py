@@ -34,19 +34,19 @@ def as_date(month_day: MonthDay, year: int = LEAP_REF_YEAR) -> dt.date:
 # -----------------------------------------------------------------------------
 
 
-def validate_positive_n_timesteps(n_timesteps: int) -> None:
+def validate_n_timesteps(n_timesteps: int) -> None:
     """Validate that the number of timesteps is positive."""
     if n_timesteps <= 0:
         raise ValueError(f"Non-positive number of timesteps: {n_timesteps}.")
 
 
-def validate_assessment_period(
+def validate_subperiod(
     start_month_day: MonthDay,
     end_month_day: MonthDay,
     min_start_month_day: MonthDay,
     max_end_month_day: MonthDay,
 ) -> None:
-    """Validate that an assessment period lies within a permitted period."""
+    """Validate that a period lies within a permitted period."""
     if not (
         as_date(min_start_month_day)
         <= as_date(start_month_day)

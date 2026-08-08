@@ -2,10 +2,10 @@
 
 from typing import TYPE_CHECKING
 
+import aark.ep._pact
 import aark.ep.obj
 import aark.ep.sched
 import aark.tm59._utils
-import aark.validation.ep
 from aark._utils import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
 from aark.tm59.data import (
     ANCILLARY_ROOM_TYPES,
@@ -228,8 +228,8 @@ def apply(
     ```
     """
     # validate aark assumptions
-    aark.validation.ep.validate_ep_ver(idf)
-    aark.validation.ep.validate_no_space(idf)
+    aark.ep._pact.validate_ep_ver(idf)
+    aark.ep._pact.validate_no_space(idf)
 
     # validate user inputs
     _validate_zone_maps(idf, zone_maps)

@@ -46,7 +46,7 @@ def date_linspace(
     end_date = dt.date(end_date.year, end_date.month, end_date.day)
 
     # validate
-    aark._utils.validate_positive_n_timesteps(n_daily_timesteps)
+    aark._utils.validate_n_timesteps(n_daily_timesteps)
 
     minute_step, remainder = divmod(24 * 60, n_daily_timesteps)
     if remainder:

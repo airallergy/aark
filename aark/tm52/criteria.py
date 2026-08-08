@@ -43,9 +43,9 @@ def _parsed_criterion_args(
 
     # validate
     aark.arr.validate_finite(Top_1d, Trm, occupancy_1d)
-    aark._utils.validate_positive_n_timesteps(n_hourly_timesteps)
+    aark._utils.validate_n_timesteps(n_hourly_timesteps)
     aark.arr.validate_full_days(Top_1d, n_hourly_timesteps)
-    aark._utils.validate_assessment_period(
+    aark._utils.validate_subperiod(
         start_month_day, end_month_day, SUMMER_START_MONTH_DAY, SUMMER_END_MONTH_DAY
     )
     aark.tm52.adaptive.validate_category(category)
