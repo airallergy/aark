@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-import aark
+import aark._utils
 import aark.arr
 import aark.tm52.criteria
-from aark import (
+from aark._utils import (
     LEAP_REF_YEAR,
     NON_LEAP_REF_YEAR,
     YEAR_END_MONTH_DAY,
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
     from eppy.modeleditor import IDF
 
-    from aark import MonthDay
+    from aark._utils import MonthDay
     from aark.arr import BoolArr1D, FloatArr1D, FloatArr2D
 
 
@@ -44,9 +44,9 @@ def _parsed_non_adaptive_criterion_args(
 
     # validate
     aark.arr.validate_finite(Top_1d)
-    aark.validate_positive_n_timesteps(n_hourly_timesteps)
+    aark._utils.validate_positive_n_timesteps(n_hourly_timesteps)
     aark.arr.validate_full_days(Top_1d, n_hourly_timesteps)
-    aark.tm52.criteria.validate_assessment_period(
+    aark._utils.validate_assessment_period(
         start_month_day, end_month_day, YEAR_START_MONTH_DAY, YEAR_END_MONTH_DAY
     )
 
@@ -58,8 +58,8 @@ def _parsed_non_adaptive_criterion_args(
 
     # validate more
     ref_year = LEAP_REF_YEAR if is_leap else NON_LEAP_REF_YEAR
-    start_date = aark.as_date(start_month_day, ref_year)
-    end_date = aark.as_date(end_month_day, ref_year)
+    start_date = aark._utils.as_date(start_month_day, ref_year)
+    end_date = aark._utils.as_date(end_month_day, ref_year)
 
     datetimes = aark.arr.date_linspace(start_date, end_date, n_daily_timesteps)
     datetimes_2d = datetimes.reshape(-1, n_daily_timesteps)
@@ -68,9 +68,9 @@ def _parsed_non_adaptive_criterion_args(
     return Top
 
 
-def get_daily_awake_mask(n_hourly_timesteps: int) -> BoolArr1D:
+def _get_daily_awake_mask(n_hourly_timesteps: int) -> BoolArr1D:
     """Return the daily awake mask."""
-    aark.validate_positive_n_timesteps(n_hourly_timesteps)
+    aark._utils.validate_positive_n_timesteps(n_hourly_timesteps)
 
     hour_idxs = np.arange(24, dtype=int)
     hourly_mask = (hour_idxs >= AWAKE_START_HOUR) & (hour_idxs < AWAKE_END_HOUR)
@@ -78,7 +78,7 @@ def get_daily_awake_mask(n_hourly_timesteps: int) -> BoolArr1D:
     return timestep_mask.ravel()
 
 
-def calc_fixed_temperature_exceedance(
+def _calc_fixed_temperature_exceedance(
     assessed_temperatures: FloatArr1D,
     temperature_threshold: float,
     criterion_threshold: float,
@@ -121,10 +121,10 @@ def assess_criterion_a(
 
     Occupied hours exceeding the adaptive limit, from TM52 criterion 1.
     """
-    validate_category_not_3(category)
+    _validate_category_not_3(category)
 
     if awake_only:
-        daily_awake = get_daily_awake_mask(n_hourly_timesteps)
+        daily_awake = _get_daily_awake_mask(n_hourly_timesteps)
 
         occupancy_1d = aark.arr.as_1d(occupancy_1d)
         aark.arr.validate_full_days(occupancy_1d, n_hourly_timesteps)
@@ -159,8 +159,8 @@ def assess_criterion_b(
         Top_1d, start_month_day, end_month_day, n_hourly_timesteps, is_leap
     )
 
-    daily_asleep = ~get_daily_awake_mask(n_hourly_timesteps)
-    result = calc_fixed_temperature_exceedance(
+    daily_asleep = ~_get_daily_awake_mask(n_hourly_timesteps)
+    result = _calc_fixed_temperature_exceedance(
         Top[:, daily_asleep].ravel(),
         GUIDE_A_TEMPERATURE_THRESHOLD,
         CRITERION_B_THRESHOLD,
@@ -200,7 +200,7 @@ def assess_mechanical_vent(
     if not occupied.any():
         raise ValueError(f"Zero occupancy: {occupancy}.")
 
-    result = calc_fixed_temperature_exceedance(
+    result = _calc_fixed_temperature_exceedance(
         Top[occupied],
         GUIDE_A_TEMPERATURE_THRESHOLD,
         MECHANICAL_VENT_THRESHOLD,
@@ -230,7 +230,7 @@ def assess_communal_corridor(
         Top_1d, start_month_day, end_month_day, n_hourly_timesteps, is_leap
     )
 
-    return calc_fixed_temperature_exceedance(
+    return _calc_fixed_temperature_exceedance(
         Top.ravel(),
         COMMUNAL_CORRIDOR_TEMPERATURE_THRESHOLD,
         COMMUNAL_CORRIDOR_THRESHOLD,
@@ -253,7 +253,7 @@ def apply_outputs(idf: IDF) -> None:
 # -----------------------------------------------------------------------------
 
 
-def validate_category_not_3(category: int) -> None:
+def _validate_category_not_3(category: int) -> None:
     """Validate that an adaptive comfort category is not 3."""
     if category == 3:
         raise ValueError(f"Invalid adaptive category: {category}.")

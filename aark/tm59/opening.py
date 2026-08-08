@@ -3,12 +3,12 @@
 from typing import TYPE_CHECKING
 
 import aark.ep.afn
-import aark.ep.generic
+import aark.ep.obj
 import aark.ep.sched
-import aark.tm59
-import aark.tm59.utils
+import aark.tm59._utils
 import aark.validation.ep
-from aark import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
+from aark._utils import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
+from aark.ep.field import MAX_EP_STR_FIELD_LEN
 from aark.tm59.data import (
     AWAKE_END_HOUR,
     AWAKE_START_HOUR,
@@ -25,11 +25,11 @@ if TYPE_CHECKING:
     from eppy.bunch_subclass import EpBunch
     from eppy.modeleditor import IDF
 
-    from aark import MonthDay
-    from aark.tm59.utils import RoomMap
+    from aark._utils import MonthDay
+    from aark.tm59._utils import RoomMap
 
 
-def get_avail_hourly_factors(room_type: str) -> tuple[str, ...]:
+def _get_avail_hourly_factors(room_type: str) -> tuple[str, ...]:
     """Get availability hourly factors by room type."""
     if room_type in SLEEP_ROOM_TYPES:
         return tuple(
@@ -46,16 +46,14 @@ def get_avail_hourly_factors(room_type: str) -> tuple[str, ...]:
         )
 
 
-def add_program_to_calling_manager(idf: IDF, program_obj_name: str) -> None:
+def _add_program_to_calling_manager(idf: IDF, program_obj_name: str) -> None:
     """Add a program to the model-level window program calling manager."""
     calling_manager_cls_name = "EnergyManagementSystem:ProgramCallingManager"
-    calling_manager_obj_name = aark.tm59.prefix("window_opening")
+    calling_manager_obj_name = aark.tm59._utils.prefix("window_opening")
     calling_point = "BeginTimestepBeforePredictor"
 
-    if aark.ep.generic.has_named_obj(
-        idf, calling_manager_cls_name, calling_manager_obj_name
-    ):
-        calling_manager_obj = aark.ep.generic.get_named_object(
+    if aark.ep.obj.has_named(idf, calling_manager_cls_name, calling_manager_obj_name):
+        calling_manager_obj = aark.ep.obj.get_named(
             idf, calling_manager_cls_name, calling_manager_obj_name
         )
 
@@ -64,7 +62,7 @@ def add_program_to_calling_manager(idf: IDF, program_obj_name: str) -> None:
                 f"Program calling manager exists at a different calling point: {calling_manager_obj.EnergyPlus_Model_Calling_Point}."
             )
 
-        aark.ep.generic.rstrip_obj(calling_manager_obj)
+        aark.ep.obj.rstrip(calling_manager_obj)
         n_programs = len(calling_manager_obj.fieldvalues) - 3
         if not any(
             calling_manager_obj[f"Program_Name_{i}"] == program_obj_name
@@ -72,7 +70,7 @@ def add_program_to_calling_manager(idf: IDF, program_obj_name: str) -> None:
         ):
             calling_manager_obj[f"Program_Name_{n_programs + 1}"] = program_obj_name
     else:
-        aark.ep.generic.add_obj(
+        aark.ep.obj.add(
             idf,
             calling_manager_cls_name,
             Name=calling_manager_obj_name,
@@ -81,7 +79,7 @@ def add_program_to_calling_manager(idf: IDF, program_obj_name: str) -> None:
         )
 
 
-def add_window(
+def _add_window(
     idf: IDF,
     afn_surface_obj: EpBunch,
     zone_name: str,
@@ -91,11 +89,11 @@ def add_window(
 ) -> None:
     """Add control for the window."""
     window_obj_name = afn_surface_obj.Surface_Name
-    avail_sched_obj_name = aark.tm59.prefix(f"window_avail_{room_type}")
-    avail_sensor_obj_name = aark.tm59.utils.erl_uid("window_avail", room_type)
-    Ta_sensor_obj_name = aark.tm59.utils.erl_uid("Ta", zone_name)
-    actuator_obj_name = aark.tm59.utils.erl_uid("opening_factor", window_obj_name)
-    program_obj_name = aark.tm59.utils.erl_uid("opening", window_obj_name)
+    avail_sched_obj_name = aark.tm59._utils.prefix(f"window_avail_{room_type}")
+    avail_sensor_obj_name = aark.tm59._utils.erl_uid("window_avail", room_type)
+    Ta_sensor_obj_name = aark.tm59._utils.erl_uid("Ta", zone_name)
+    actuator_obj_name = aark.tm59._utils.erl_uid("opening_factor", window_obj_name)
+    program_obj_name = aark.tm59._utils.erl_uid("opening", window_obj_name)
     program_lines = (
         f"IF {avail_sensor_obj_name} > 0",
         f"IF {Ta_sensor_obj_name} > {WINDOW_OPENING_THRESHOLD}",
@@ -109,13 +107,13 @@ def add_window(
     )
 
     for line in program_lines:
-        if len(line) > aark.ep.generic.MAX_EP_STR_FIELD_LEN:
+        if len(line) > MAX_EP_STR_FIELD_LEN:
             raise ValueError(
-                f"EMS program line exceeds {aark.ep.generic.MAX_EP_STR_FIELD_LEN} characters: {line}."
+                f"EMS program line exceeds {MAX_EP_STR_FIELD_LEN} characters: {line}."
             )
 
     # add the availability schedule
-    avail_hourly_factors = get_avail_hourly_factors(room_type)
+    avail_hourly_factors = _get_avail_hourly_factors(room_type)
     avail_sched_blocks = aark.ep.sched.make_compact_blocks(
         avail_hourly_factors, start_month_day, end_month_day
     )
@@ -129,7 +127,7 @@ def add_window(
     afn_surface_obj.Venting_Availability_Schedule_Name = avail_sched_obj_name
 
     # add the availability sensor
-    aark.ep.generic.add_obj(
+    aark.ep.obj.add(
         idf,
         "EnergyManagementSystem:Sensor",
         Name=avail_sensor_obj_name,
@@ -138,7 +136,7 @@ def add_window(
     )
 
     # add the indoor air temperature sensor
-    aark.ep.generic.add_obj(
+    aark.ep.obj.add(
         idf,
         "EnergyManagementSystem:Sensor",
         Name=Ta_sensor_obj_name,
@@ -147,7 +145,7 @@ def add_window(
     )
 
     # add the actuator
-    aark.ep.generic.add_obj(
+    aark.ep.obj.add(
         idf,
         "EnergyManagementSystem:Actuator",
         Name=actuator_obj_name,
@@ -157,7 +155,7 @@ def add_window(
     )
 
     # add the program
-    aark.ep.generic.add_obj(
+    aark.ep.obj.add(
         idf,
         "EnergyManagementSystem:Program",
         Name=program_obj_name,
@@ -165,10 +163,10 @@ def add_window(
     )
 
     # add the program to the calling manager
-    add_program_to_calling_manager(idf, program_obj_name)
+    _add_program_to_calling_manager(idf, program_obj_name)
 
 
-def apply_external_windows(
+def _apply_external_windows(
     idf: IDF, window_map: RoomMap, start_month_day: MonthDay, end_month_day: MonthDay
 ) -> None:
     """Apply the external window openings.
@@ -178,14 +176,14 @@ def apply_external_windows(
     """
     for room_type, window_obj_names in window_map.items():
         for window_obj_name in window_obj_names:
-            window_obj = aark.ep.generic.get_named_object(
+            window_obj = aark.ep.obj.get_named(
                 idf, "FenestrationSurface:Detailed", window_obj_name
             )
-            zone_name = aark.ep.generic.get_zone_obj(window_obj).Name
+            zone_name = aark.ep.obj.get_zone(window_obj).Name
 
             afn_surface_obj = aark.ep.afn.get_surface_obj(idf, window_obj_name)
 
-            add_window(
+            _add_window(
                 idf,
                 afn_surface_obj,
                 zone_name,
@@ -195,7 +193,7 @@ def apply_external_windows(
             )
 
 
-def apply_internal_doors(
+def _apply_internal_doors(
     idf: IDF, doors: Sequence[str], start_month_day: MonthDay, end_month_day: MonthDay
 ) -> None:
     """Apply the internal door openings.
@@ -203,8 +201,8 @@ def apply_internal_doors(
     Internal doors refer to intra-dwelling doors.
     """
     # add the availability schedule
-    avail_hourly_factors = get_avail_hourly_factors(STUDIO_TYPE)
-    sched_obj_name = aark.tm59.prefix("internal_door_avail")
+    avail_hourly_factors = _get_avail_hourly_factors(STUDIO_TYPE)
+    sched_obj_name = aark.tm59._utils.prefix("internal_door_avail")
     sched_blocks = aark.ep.sched.make_compact_blocks(
         avail_hourly_factors, start_month_day, end_month_day
     )
@@ -276,11 +274,11 @@ def apply(
     aark.validation.ep.validate_no_space(idf)
 
     # validate user inputs
-    validate_window_map(idf, window_map)
-    validate_doors(idf, doors)
+    _validate_window_map(idf, window_map)
+    _validate_doors(idf, doors)
 
-    apply_external_windows(idf, window_map, start_month_day, end_month_day)
-    apply_internal_doors(idf, doors, start_month_day, end_month_day)
+    _apply_external_windows(idf, window_map, start_month_day, end_month_day)
+    _apply_internal_doors(idf, doors, start_month_day, end_month_day)
 
 
 # -----------------------------------------------------------------------------
@@ -288,7 +286,7 @@ def apply(
 # -----------------------------------------------------------------------------
 
 
-def validate_fenestration_afn_opening(idf: IDF, fenestration_obj_name: str) -> None:
+def _validate_fenestration_afn_opening(idf: IDF, fenestration_obj_name: str) -> None:
     """Validate the AFN opening linkage needed to control a fenestration."""
     afn_surface_obj = aark.ep.afn.get_surface_obj(idf, fenestration_obj_name)
 
@@ -300,7 +298,7 @@ def validate_fenestration_afn_opening(idf: IDF, fenestration_obj_name: str) -> N
         )
 
 
-def validate_erl_uids(*src_names: str) -> None:
+def _validate_erl_uids(*src_names: str) -> None:
     """Validate that unique source names produce unique Erl uids."""
     unique_src_names = set(src_names)
 
@@ -309,7 +307,7 @@ def validate_erl_uids(*src_names: str) -> None:
     # `Window-A` and `windowa` become `WindowA` and `windowa`. Erl identifiers are
     # case insensitive, so uids must be converted to uppercase before comparison.
     unique_erl_uids = {
-        aark.tm59.utils.erl_uid("7", src_name).upper() for src_name in unique_src_names
+        aark.tm59._utils.erl_uid("7", src_name).upper() for src_name in unique_src_names
     }
 
     if len(unique_src_names) != len(unique_erl_uids):
@@ -318,9 +316,9 @@ def validate_erl_uids(*src_names: str) -> None:
         )
 
 
-def validate_window_map(idf: IDF, window_map: RoomMap) -> None:
+def _validate_window_map(idf: IDF, window_map: RoomMap) -> None:
     """Validate a window map for applying external window opening."""
-    aark.tm59.utils.validate_room_map(window_map)
+    aark.tm59._utils.validate_room_map(window_map)
 
     invalid_room_types = set(window_map) - HABITABLE_ROOM_TYPES
     if invalid_room_types:
@@ -328,28 +326,28 @@ def validate_window_map(idf: IDF, window_map: RoomMap) -> None:
             f"Invalid room types for window opening: {invalid_room_types}."
         )
 
-    aark.tm59.utils.validate_mapped_obj_names(
+    aark.tm59._utils.validate_mapped_obj_names(
         idf, "FenestrationSurface:Detailed", window_map
     )
 
     window_obj_names = [name for names in window_map.values() for name in names]
     zone_names = []
     for window_obj_name in window_obj_names:
-        window_obj = aark.ep.generic.get_named_object(
+        window_obj = aark.ep.obj.get_named(
             idf, "FenestrationSurface:Detailed", window_obj_name
         )
-        zone_names.append(aark.ep.generic.get_zone_obj(window_obj).Name)
+        zone_names.append(aark.ep.obj.get_zone(window_obj).Name)
 
-    validate_erl_uids(*zone_names)
-    validate_erl_uids(*window_obj_names)
-    validate_erl_uids(*window_map)
+    _validate_erl_uids(*zone_names)
+    _validate_erl_uids(*window_obj_names)
+    _validate_erl_uids(*window_map)
 
     # NOTE: fast fail
     for window_obj_name in window_obj_names:
-        validate_fenestration_afn_opening(idf, window_obj_name)
+        _validate_fenestration_afn_opening(idf, window_obj_name)
 
 
-def validate_doors(idf: IDF, doors: Sequence[str]) -> None:
+def _validate_doors(idf: IDF, doors: Sequence[str]) -> None:
     """Validate a sequence of doors for applying internal door opening."""
     if not doors:
         raise ValueError(f"Empty doors: {doors}.")
@@ -360,8 +358,6 @@ def validate_doors(idf: IDF, doors: Sequence[str]) -> None:
     # NOTE: fast fail
     for door_obj_name in doors:
         # the door must exist in the idf
-        aark.ep.generic.get_named_object(
-            idf, "FenestrationSurface:Detailed", door_obj_name
-        )
+        aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", door_obj_name)
 
-        validate_fenestration_afn_opening(idf, door_obj_name)
+        _validate_fenestration_afn_opening(idf, door_obj_name)

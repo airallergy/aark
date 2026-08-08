@@ -4,9 +4,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-import aark
+import aark._utils
 import aark.arr
-import aark.ep.generic
+import aark.ep.obj
 import aark.tm52.adaptive
 
 if TYPE_CHECKING:
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
     from eppy.modeleditor import IDF
 
-    from aark import MonthDay
+    from aark._utils import MonthDay
     from aark.arr import BoolArr2D, FloatArr1D, FloatArr2D
 
 
@@ -43,9 +43,9 @@ def _parsed_criterion_args(
 
     # validate
     aark.arr.validate_finite(Top_1d, Trm, occupancy_1d)
-    aark.validate_positive_n_timesteps(n_hourly_timesteps)
+    aark._utils.validate_positive_n_timesteps(n_hourly_timesteps)
     aark.arr.validate_full_days(Top_1d, n_hourly_timesteps)
-    validate_assessment_period(
+    aark._utils.validate_assessment_period(
         start_month_day, end_month_day, SUMMER_START_MONTH_DAY, SUMMER_END_MONTH_DAY
     )
     aark.tm52.adaptive.validate_category(category)
@@ -65,8 +65,8 @@ def _parsed_criterion_args(
     if not occupied.any():
         raise ValueError(f"Zero occupancy: {occupancy}.")
 
-    start_date = aark.as_date(start_month_day)
-    end_date = aark.as_date(end_month_day)
+    start_date = aark._utils.as_date(start_month_day)
+    end_date = aark._utils.as_date(end_month_day)
     datetimes = aark.arr.date_linspace(start_date, end_date, n_daily_timesteps)
     datetimes_2d = datetimes.reshape(-1, n_daily_timesteps)
 
@@ -213,33 +213,10 @@ def assess_criterion_3(
 def apply_outputs(idf: IDF) -> None:
     """Add the EnergyPlus outputs required to assess the TM52 criteria."""
     for var_name in OUTPUT_VAR_NAMES:
-        aark.ep.generic.add_obj(
+        aark.ep.obj.add(
             idf,
             "Output:Variable",
             Key_Value="*",
             Variable_Name=var_name,
             Reporting_Frequency="Hourly",
-        )
-
-
-# -----------------------------------------------------------------------------
-# Validation
-# -----------------------------------------------------------------------------
-
-
-def validate_assessment_period(
-    start_month_day: MonthDay,
-    end_month_day: MonthDay,
-    min_start_month_day: MonthDay,
-    max_end_month_day: MonthDay,
-) -> None:
-    """Validate that an assessment period lies within a permitted period."""
-    if not (
-        aark.as_date(min_start_month_day)
-        <= aark.as_date(start_month_day)
-        <= aark.as_date(end_month_day)
-        <= aark.as_date(max_end_month_day)
-    ):
-        raise ValueError(
-            f"Invalid assessment period: {start_month_day}, {end_month_day}."
         )

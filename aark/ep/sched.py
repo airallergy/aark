@@ -4,15 +4,16 @@ import datetime as dt
 import itertools
 from typing import TYPE_CHECKING
 
-import aark.ep.generic
-from aark import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
+import aark._utils
+import aark.ep.obj
+from aark._utils import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from eppy.modeleditor import IDF
 
-    from aark import MonthDay
+    from aark._utils import MonthDay
 
 
 VAL_TYPE2LIMITS = {
@@ -76,8 +77,8 @@ def make_compact_blocks(
 ) -> list[list[str]]:
     """Create compact schedule blocks with zero values outside an active period."""
     # parse and validate two dates
-    start_date = aark.as_date(start_month_day)
-    end_date = aark.as_date(end_month_day)
+    start_date = aark._utils.as_date(start_month_day)
+    end_date = aark._utils.as_date(end_month_day)
 
     if start_date > end_date:
         raise ValueError(
@@ -87,7 +88,7 @@ def make_compact_blocks(
     zero_hourly_vals = ("0",) * 24
     blocks = []
 
-    if start_date != aark.as_date(YEAR_START_MONTH_DAY):
+    if start_date != aark._utils.as_date(YEAR_START_MONTH_DAY):
         inactive_end_date = start_date - dt.timedelta(days=1)
         blocks.append(
             make_compact_block(
@@ -97,7 +98,7 @@ def make_compact_blocks(
 
     blocks.append(make_compact_block((end_date.month, end_date.day), hourly_vals))
 
-    if end_date != aark.as_date(YEAR_END_MONTH_DAY):
+    if end_date != aark._utils.as_date(YEAR_END_MONTH_DAY):
         blocks.append(make_compact_block(YEAR_END_MONTH_DAY, zero_hourly_vals))
 
     return blocks
@@ -110,10 +111,10 @@ def add_type_limits_obj(idf: IDF, val_type: str) -> None:
         raise ValueError(f"Unknown schedule value type: {val_type}.")
 
     # add the schedule type limits object
-    aark.ep.generic.add_obj(
+    aark.ep.obj.add(
         idf,
         "ScheduleTypeLimits",
-        Name=aark.prefix(val_type),
+        Name=aark._utils.prefix(val_type),
         **VAL_TYPE2LIMITS[val_type],
     )
 
@@ -131,8 +132,11 @@ def add_compact_obj(idf: IDF, name: str, val_type: str, *blocks: Sequence[str]) 
     add_type_limits_obj(idf, val_type)
 
     # add the compact schedule object
-    obj_fields = {"Name": name, "Schedule_Type_Limits_Name": aark.prefix(val_type)}
+    obj_fields = {
+        "Name": name,
+        "Schedule_Type_Limits_Name": aark._utils.prefix(val_type),
+    }
     for i, val in enumerate(list(itertools.chain(*blocks)), start=1):
         obj_fields[f"Field_{i}"] = val
 
-    aark.ep.generic.add_obj(idf, "Schedule:Compact", **obj_fields)
+    aark.ep.obj.add(idf, "Schedule:Compact", **obj_fields)

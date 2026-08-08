@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
     import pyodbc
 
-    from aark import MonthDay
+    from aark._utils import MonthDay
 
     type PyODBCRows = list[pyodbc.Row]
     type PyODBCCur = pyodbc.Cursor

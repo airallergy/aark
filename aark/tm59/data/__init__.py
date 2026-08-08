@@ -31,12 +31,12 @@ AWAKE_END_HOUR = 23
 # -----------------------------------------------------------------------------
 
 
-class InternalGainProfiles:
+class _InternalGainProfiles:
     """Provide TM59 internal gain profiles."""
 
-    __slots__ = ("rows",)
+    __slots__ = ("_rows",)
 
-    rows: tuple[MappingProxyType[str, str], ...]
+    _rows: tuple[MappingProxyType[str, str], ...]
 
     def __init__(self) -> None:
         """Read the internal gain profiles."""
@@ -46,20 +46,20 @@ class InternalGainProfiles:
 
         with resource.open() as f:
             reader = csv.DictReader(f)
-            self.rows = tuple(map(MappingProxyType, reader))
+            self._rows = tuple(map(MappingProxyType, reader))
 
-    def get_row(self, gain_type: str, room_type: str = "") -> Mapping[str, str]:
+    def _get_row(self, gain_type: str, room_type: str = "") -> Mapping[str, str]:
         """Get the row for the given gain type and room type."""
         (row,) = (
             row
-            for row in self.rows
+            for row in self._rows
             if (row["gain_type"] == gain_type) and (row["room_type"] == room_type)
         )
         return row
 
     def get_peak_load(self, gain_type: str, room_type: str = "") -> str:
         """Get the peak load, including latent load per person for occupancy."""
-        row = self.get_row(gain_type, room_type)
+        row = self._get_row(gain_type, room_type)
 
         peak_load = int(row["peak_sensible"])
 
@@ -73,13 +73,13 @@ class InternalGainProfiles:
         self, gain_type: str, room_type: str = ""
     ) -> tuple[str, ...]:
         """Get the 24 hourly factors."""
-        row = self.get_row(gain_type, room_type)
+        row = self._get_row(gain_type, room_type)
 
         return tuple(row[f"H{hour:02d}"] for hour in range(24))
 
     def get_n_people(self, room_type: str, n_bedrooms: int) -> str:
         """Get the number of people."""
-        row = self.get_row("occupancy", room_type)
+        row = self._get_row("occupancy", room_type)
 
         n_people = int(row["n_people"])
         if room_type in N_BEDROOMS_DEPENDENT_ROOM_TYPES:
@@ -89,7 +89,7 @@ class InternalGainProfiles:
 
     def get_sensible_frac(self, room_type: str) -> str:
         """Get the sensible fraction of occupants' metabolic rate."""
-        row = self.get_row("occupancy", room_type)
+        row = self._get_row("occupancy", room_type)
 
         sensible_frac = int(row["peak_sensible"]) / (
             int(row["peak_sensible"]) + int(row["peak_latent"])
@@ -98,4 +98,4 @@ class InternalGainProfiles:
         return str(round(sensible_frac, 7))
 
 
-INTERNAL_GAIN_PROFILES = InternalGainProfiles()
+INTERNAL_GAIN_PROFILES = _InternalGainProfiles()

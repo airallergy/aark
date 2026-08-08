@@ -3,7 +3,7 @@
 from typing import TYPE_CHECKING
 
 import aark.ep.field
-import aark.ep.generic
+import aark.ep.obj
 
 if TYPE_CHECKING:
     from eppy.bunch_subclass import EpBunch
@@ -43,6 +43,6 @@ def get_surface_obj(idf: IDF, surface_name: str) -> EpBunch:
 def is_opening_component(idf: IDF, component_obj_name: str) -> bool:
     """Return whether a name refers to an Airflow Network opening component."""
     return any(
-        aark.ep.generic.has_named_obj(idf, cls_name, component_obj_name)
+        aark.ep.obj.has_named(idf, cls_name, component_obj_name)
         for cls_name in OPENING_COMPONENT_CLS_NAMES
     )

@@ -10,6 +10,7 @@ if TYPE_CHECKING:
 
 
 AUTO_NUMERIC_VALS = frozenset({"AUTOSIZE", "AUTOCALCULATE"})
+MAX_EP_STR_FIELD_LEN = 100
 
 
 def get_type(obj: EpBunch, name: str) -> str:

@@ -1,11 +1,11 @@
-"""Utility functions shared by the TM59 module."""
+"""Utility functions shared by TM59 modules."""
 
 import re
 from collections import Counter
 from typing import TYPE_CHECKING
 
-import aark.ep.generic
-import aark.tm59
+import aark._utils
+import aark.ep.obj
 from aark.tm59.data import ALL_ROOM_TYPES
 
 if TYPE_CHECKING:
@@ -21,6 +21,19 @@ if TYPE_CHECKING:
 # -----------------------------------------------------------------------------
 
 
+def prefix(s: str) -> str:
+    """Prepend the package namespace to a string."""
+    p = aark._utils.prefix("tm59_")
+
+    if not s:
+        raise ValueError(f"Empty string: {s}.")
+
+    if s.upper().startswith(p.upper()):
+        raise ValueError(f"String already has a {p} prefix: {s}.")
+
+    return f"{p}{s}"
+
+
 def _uid(*args: str) -> str:
     """Build a standard aark-generated uid."""
     args = tuple(arg for arg in args if arg)
@@ -28,7 +41,7 @@ def _uid(*args: str) -> str:
     if not args:
         raise ValueError(f"Empty uid arguments: {args}.")
 
-    return aark.tm59.prefix("_".join(args))
+    return prefix("_".join(args))
 
 
 def gain_uid(gain_type: str, zone_name: str) -> str:
@@ -100,4 +113,4 @@ def validate_mapped_obj_names(idf: IDF, cls_name: str, *room_maps: RoomMap) -> N
 
     # all object names must exist in the idf
     for obj_name in obj_names:
-        aark.ep.generic.get_named_object(idf, cls_name, obj_name)
+        aark.ep.obj.get_named(idf, cls_name, obj_name)

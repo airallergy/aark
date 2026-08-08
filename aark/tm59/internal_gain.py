@@ -2,11 +2,11 @@
 
 from typing import TYPE_CHECKING
 
-import aark.ep.generic
+import aark.ep.obj
 import aark.ep.sched
-import aark.tm59.utils
+import aark.tm59._utils
 import aark.validation.ep
-from aark import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
+from aark._utils import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
 from aark.tm59.data import (
     ANCILLARY_ROOM_TYPES,
     BEDROOM_TYPES,
@@ -21,11 +21,11 @@ if TYPE_CHECKING:
 
     from eppy.modeleditor import IDF
 
-    from aark import MonthDay
-    from aark.tm59.utils import RoomMap
+    from aark._utils import MonthDay
+    from aark.tm59._utils import RoomMap
 
 
-def add_occupancy(
+def _add_occupancy(
     idf: IDF,
     zone_name: str,
     room_type: str,
@@ -46,9 +46,9 @@ def add_occupancy(
     metabolic_hourly_factors = (metabolic_rate,) * 24
 
     # get object names
-    occupancy_sched_obj_name = aark.tm59.utils.sched_uid(gain_type, room_type)
-    metabolic_sched_obj_name = aark.tm59.utils.sched_uid("metabolic")
-    gain_obj_name = aark.tm59.utils.gain_uid(gain_type, zone_name)
+    occupancy_sched_obj_name = aark.tm59._utils.sched_uid(gain_type, room_type)
+    metabolic_sched_obj_name = aark.tm59._utils.sched_uid("metabolic")
+    gain_obj_name = aark.tm59._utils.gain_uid(gain_type, zone_name)
 
     # add schedule objects
     occupancy_sched_blocks = aark.ep.sched.make_compact_blocks(
@@ -64,7 +64,7 @@ def add_occupancy(
     )
 
     # add gain objects
-    aark.ep.generic.add_obj(
+    aark.ep.obj.add(
         idf,
         "People",
         Name=gain_obj_name,
@@ -77,7 +77,7 @@ def add_occupancy(
     )
 
 
-def add_equipment(
+def _add_equipment(
     idf: IDF,
     zone_name: str,
     room_type: str,
@@ -92,8 +92,8 @@ def add_equipment(
     hourly_factors = INTERNAL_GAIN_PROFILES.get_hourly_factors(gain_type, room_type)
 
     # get object names
-    sched_obj_name = aark.tm59.utils.sched_uid(gain_type, room_type)
-    gain_obj_name = aark.tm59.utils.gain_uid(gain_type, zone_name)
+    sched_obj_name = aark.tm59._utils.sched_uid(gain_type, room_type)
+    gain_obj_name = aark.tm59._utils.gain_uid(gain_type, zone_name)
 
     # add schedule objects
     sched_blocks = aark.ep.sched.make_compact_blocks(
@@ -102,7 +102,7 @@ def add_equipment(
     aark.ep.sched.add_compact_obj(idf, sched_obj_name, "Fraction", *sched_blocks)
 
     # add gain objects
-    aark.ep.generic.add_obj(
+    aark.ep.obj.add(
         idf,
         "ElectricEquipment",
         Name=gain_obj_name,
@@ -113,7 +113,7 @@ def add_equipment(
     )
 
 
-def add_lighting(
+def _add_lighting(
     idf: IDF, zone_name: str, start_month_day: MonthDay, end_month_day: MonthDay
 ) -> None:
     """Add lighting gain to the zone."""
@@ -124,8 +124,8 @@ def add_lighting(
     hourly_factors = INTERNAL_GAIN_PROFILES.get_hourly_factors(gain_type)
 
     # get object names
-    sched_obj_name = aark.tm59.utils.sched_uid(gain_type)
-    gain_obj_name = aark.tm59.utils.gain_uid(gain_type, zone_name)
+    sched_obj_name = aark.tm59._utils.sched_uid(gain_type)
+    gain_obj_name = aark.tm59._utils.gain_uid(gain_type, zone_name)
 
     # add schedule objects
     sched_blocks = aark.ep.sched.make_compact_blocks(
@@ -134,7 +134,7 @@ def add_lighting(
     aark.ep.sched.add_compact_obj(idf, sched_obj_name, "Fraction", *sched_blocks)
 
     # add gain objects
-    aark.ep.generic.add_obj(
+    aark.ep.obj.add(
         idf,
         "Lights",
         Name=gain_obj_name,
@@ -145,7 +145,7 @@ def add_lighting(
     )
 
 
-def apply_dwelling(
+def _apply_dwelling(
     idf: IDF, zone_map: RoomMap, start_month_day: MonthDay, end_month_day: MonthDay
 ) -> None:
     """Apply the internal gain profiles to a dwelling."""
@@ -153,10 +153,10 @@ def apply_dwelling(
 
     for room_type, zone_names in zone_map.items():
         for zone_name in zone_names:
-            add_lighting(idf, zone_name, start_month_day, end_month_day)
+            _add_lighting(idf, zone_name, start_month_day, end_month_day)
 
             if room_type in HABITABLE_ROOM_TYPES:
-                add_occupancy(
+                _add_occupancy(
                     idf,
                     zone_name,
                     room_type,
@@ -164,15 +164,17 @@ def apply_dwelling(
                     start_month_day,
                     end_month_day,
                 )
-                add_equipment(idf, zone_name, room_type, start_month_day, end_month_day)
+                _add_equipment(
+                    idf, zone_name, room_type, start_month_day, end_month_day
+                )
 
 
-def apply_communal_corridors(
+def _apply_communal_corridors(
     idf: IDF, zone_map: RoomMap, start_month_day: MonthDay, end_month_day: MonthDay
 ) -> None:
     """Apply the internal gain profiles to communal corridors."""
     for zone_name in zone_map[COMMUNAL_CORRIDOR_TYPE]:
-        add_lighting(idf, zone_name, start_month_day, end_month_day)
+        _add_lighting(idf, zone_name, start_month_day, end_month_day)
 
 
 def apply(
@@ -230,14 +232,14 @@ def apply(
     aark.validation.ep.validate_no_space(idf)
 
     # validate user inputs
-    validate_zone_maps(idf, zone_maps)
+    _validate_zone_maps(idf, zone_maps)
 
     # apply to each dwelling or communal corridor
     for zone_map in zone_maps:
-        if is_communal_corridor_zone_map(zone_map):
-            apply_communal_corridors(idf, zone_map, start_month_day, end_month_day)
+        if _is_communal_corridor_zone_map(zone_map):
+            _apply_communal_corridors(idf, zone_map, start_month_day, end_month_day)
         else:
-            apply_dwelling(idf, zone_map, start_month_day, end_month_day)
+            _apply_dwelling(idf, zone_map, start_month_day, end_month_day)
 
 
 # -----------------------------------------------------------------------------
@@ -245,9 +247,9 @@ def apply(
 # -----------------------------------------------------------------------------
 
 
-def validate_zone_map(zone_map: RoomMap) -> None:
+def _validate_zone_map(zone_map: RoomMap) -> None:
     """Validate a room-to-zone map for applying internal gains."""
-    aark.tm59.utils.validate_room_map(zone_map)
+    aark.tm59._utils.validate_room_map(zone_map)
 
     room_types = set(zone_map)
 
@@ -279,13 +281,13 @@ def validate_zone_map(zone_map: RoomMap) -> None:
             raise ValueError(f"Missing bedrooms: {zone_map}.")
 
 
-def validate_zone_maps(idf: IDF, zone_maps: Sequence[RoomMap]) -> None:
+def _validate_zone_maps(idf: IDF, zone_maps: Sequence[RoomMap]) -> None:
     """Validate all room-to-zone maps for applying internal gains."""
     # validate the structure of each zone map
     for zone_map in zone_maps:
-        validate_zone_map(zone_map)
+        _validate_zone_map(zone_map)
 
-    aark.tm59.utils.validate_mapped_obj_names(idf, "Zone", *zone_maps)
+    aark.tm59._utils.validate_mapped_obj_names(idf, "Zone", *zone_maps)
 
 
 # -----------------------------------------------------------------------------
@@ -293,6 +295,6 @@ def validate_zone_maps(idf: IDF, zone_maps: Sequence[RoomMap]) -> None:
 # -----------------------------------------------------------------------------
 
 
-def is_communal_corridor_zone_map(zone_map: RoomMap) -> bool:
+def _is_communal_corridor_zone_map(zone_map: RoomMap) -> bool:
     """Return whether a zone map represents communal corridors."""
     return set(zone_map) == {COMMUNAL_CORRIDOR_TYPE}

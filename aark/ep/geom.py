@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 import aark.ep.field
-import aark.ep.generic
+import aark.ep.obj
 import aark.validation.ep
 
 if TYPE_CHECKING:
@@ -175,7 +175,7 @@ def convert_to_world_coord_sys(idf: IDF) -> None:
     for cls_name in ("BuildingSurface:Detailed", "FenestrationSurface:Detailed"):
         for obj in idf.idfobjects[cls_name]:
             # get the origin of the parent zone
-            zone_obj = aark.ep.generic.get_zone_obj(obj)
+            zone_obj = aark.ep.obj.get_zone(obj)
             origin = zone_name2origin[zone_obj.Name]
 
             # transform the vertices to world coordinates
@@ -231,8 +231,8 @@ def get_pair_maps(idf: IDF) -> tuple[dict[str, str], dict[str, str]]:
 
     # sanity check
     for a, b in subsurface2other_name.items():
-        a_obj = aark.ep.generic.get_named_object(idf, "FenestrationSurface:Detailed", a)
-        b_obj = aark.ep.generic.get_named_object(idf, "FenestrationSurface:Detailed", b)
+        a_obj = aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", a)
+        b_obj = aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", b)
 
         a_surface_name = a_obj.Building_Surface_Name
         b_surface_name = b_obj.Building_Surface_Name

@@ -24,18 +24,3 @@ TM59:
 - The sleeping period is 23:00 - 08:00 in line with the internal gain profiles; the
   22:00 - 07:00 period in criterion (b) is treated as a typo.
 """
-
-import aark
-
-
-def prefix(s: str) -> str:
-    """Prepend the package namespace to a string."""
-    p = aark.prefix("tm59_")
-
-    if not s:
-        raise ValueError(f"Empty string: {s}.")
-
-    if s.upper().startswith(p.upper()):
-        raise ValueError(f"String already has a {p} prefix: {s}.")
-
-    return f"{p}{s}"

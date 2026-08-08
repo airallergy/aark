@@ -1,20 +1,16 @@
-"""Generic EnergyPlus functions."""
+"""Manipulate EnergyPlus objects."""
 
 from typing import TYPE_CHECKING
 
 import aark.ep.field
+from aark.ep.field import MAX_EP_STR_FIELD_LEN
 
 if TYPE_CHECKING:
     from eppy.bunch_subclass import EpBunch
     from eppy.modeleditor import IDF
 
 
-MAX_EP_STR_FIELD_LEN = 100
-
-
-def add_named_obj(
-    idf: IDF, cls_name: str, obj_name: str, **other_obj_fields: str
-) -> None:
+def _add_named(idf: IDF, cls_name: str, obj_name: str, **other_obj_fields: str) -> None:
     """Add a named object if an identical object does not exist."""
     if not obj_name:
         raise ValueError(f"Empty object name: {obj_name}.")
@@ -24,28 +20,28 @@ def add_named_obj(
             f"EnergyPlus object name exceeds {MAX_EP_STR_FIELD_LEN} characters: {obj_name}."
         )
 
-    if not named_obj_exists(idf, cls_name, obj_name, **other_obj_fields):
+    if not _named_exists(idf, cls_name, obj_name, **other_obj_fields):
         idf.newidfobject(
             cls_name, defaultvalues=False, Name=obj_name, **other_obj_fields
         )
 
 
-def add_unnamed_obj(idf: IDF, cls_name: str, **obj_fields: str) -> None:
+def _add_unnamed(idf: IDF, cls_name: str, **obj_fields: str) -> None:
     """Add an unnamed object if an identical object does not exist."""
-    if not unnamed_obj_exists(idf, cls_name, **obj_fields):
+    if not _unnamed_exists(idf, cls_name, **obj_fields):
         idf.newidfobject(cls_name, defaultvalues=False, **obj_fields)
 
 
-def add_obj(idf: IDF, cls_name: str, **obj_fields: str) -> None:
+def add(idf: IDF, cls_name: str, **obj_fields: str) -> None:
     """Add an object if an identical object does not exist."""
     match obj_fields:
         case {"Name": obj_name, **other_obj_fields}:
-            add_named_obj(idf, cls_name, obj_name, **other_obj_fields)
+            _add_named(idf, cls_name, obj_name, **other_obj_fields)
         case _:
-            add_unnamed_obj(idf, cls_name, **obj_fields)
+            _add_unnamed(idf, cls_name, **obj_fields)
 
 
-def get_named_object(idf: IDF, cls_name: str, obj_name: str) -> EpBunch:
+def get_named(idf: IDF, cls_name: str, obj_name: str) -> EpBunch:
     """Get a uniquely named object, raising if it is missing or duplicated."""
     objs = [
         obj
@@ -62,7 +58,7 @@ def get_named_object(idf: IDF, cls_name: str, obj_name: str) -> EpBunch:
     return objs[0]
 
 
-def get_parent_obj(obj: EpBunch) -> EpBunch:
+def get_parent(obj: EpBunch) -> EpBunch:
     """Get the parent object of an object."""
     match obj.key.upper():
         case "BUILDINGSURFACE:DETAILED":
@@ -74,22 +70,22 @@ def get_parent_obj(obj: EpBunch) -> EpBunch:
         case _:
             raise ValueError(f"Unsupported class: {obj.key}.")
 
-    return get_named_object(obj.theidf, parent_cls_name, parent_obj_name)
+    return get_named(obj.theidf, parent_cls_name, parent_obj_name)
 
 
-def get_zone_obj(obj: EpBunch) -> EpBunch:
+def get_zone(obj: EpBunch) -> EpBunch:
     """Get the zone object of an object."""
     match obj.key.upper():
         case "BUILDINGSURFACE:DETAILED":
-            return get_parent_obj(obj)
+            return get_parent(obj)
         case "FENESTRATIONSURFACE:DETAILED":
-            surface_obj = get_parent_obj(obj)
-            return get_parent_obj(surface_obj)
+            surface_obj = get_parent(obj)
+            return get_parent(surface_obj)
         case _:
             raise ValueError(f"Unsupported class: {obj.key}.")
 
 
-def rstrip_obj(obj: EpBunch) -> None:
+def rstrip(obj: EpBunch) -> None:
     """Remove trailing empty fields of an object."""
     # remove leading/trailing whitespace from string field values
     obj.fieldvalues[:] = [
@@ -109,21 +105,21 @@ def rstrip_obj(obj: EpBunch) -> None:
 # -----------------------------------------------------------------------------
 
 
-def has_named_obj(idf: IDF, cls_name: str, obj_name: str) -> bool:
+def has_named(idf: IDF, cls_name: str, obj_name: str) -> bool:
     """Return whether an object class contains a named object."""
     return any(
         aark.ep.field.equal(obj_name, obj, "Name") for obj in idf.idfobjects[cls_name]
     )
 
 
-def named_obj_exists(
+def _named_exists(
     idf: IDF, cls_name: str, obj_name: str, **other_obj_fields: str
 ) -> bool:
     """Return whether an identical named object exists."""
-    if not has_named_obj(idf, cls_name, obj_name):
+    if not has_named(idf, cls_name, obj_name):
         return False
 
-    existing_obj = get_named_object(idf, cls_name, obj_name)
+    existing_obj = get_named(idf, cls_name, obj_name)
 
     tmp_idf = type(idf)()
     tmp_idf.new()
@@ -139,7 +135,7 @@ def named_obj_exists(
     return True
 
 
-def unnamed_obj_exists(idf: IDF, cls_name: str, **obj_fields: str) -> bool:
+def _unnamed_exists(idf: IDF, cls_name: str, **obj_fields: str) -> bool:
     """Return whether an identical unnamed object exists."""
     tmp_idf = type(idf)()
     tmp_idf.new()
@@ -149,3 +145,12 @@ def unnamed_obj_exists(idf: IDF, cls_name: str, **obj_fields: str) -> bool:
         obj.fieldvalues[1:] == tmp_obj.fieldvalues[1:]
         for obj in idf.idfobjects[cls_name]
     )
+
+
+def exists(idf: IDF, cls_name: str, **obj_fields: str) -> bool:
+    """Return whether an identical object exists."""
+    match obj_fields:
+        case {"Name": obj_name, **other_obj_fields}:
+            return _named_exists(idf, cls_name, obj_name, **other_obj_fields)
+        case _:
+            return _unnamed_exists(idf, cls_name, **obj_fields)
