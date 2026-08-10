@@ -90,7 +90,7 @@ def _add_window(
 ) -> None:
     """Add control for the window."""
     window_name = afn_surface_obj.Surface_Name
-    max_vent_factor = aark.ep.field.default_if_empty(
+    max_vent_factor = aark.ep.field.with_default(
         afn_surface_obj.WindowDoor_Opening_Factor_or_Crack_Factor,
         afn_surface_obj,
         "WindowDoor_Opening_Factor_or_Crack_Factor",

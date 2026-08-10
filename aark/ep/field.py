@@ -48,16 +48,20 @@ def get_default(obj: EpBunch, name: str) -> str:
     return str(val)
 
 
-def default_if_empty(val: EppyVal, obj: EpBunch, name: str) -> str:
-    """Return the field default for an empty value when available."""
-    if (
-        isinstance(val, str)
-        and val.strip() == ""
-        and obj.getfieldidd_item(name, "default")
-    ):
+def with_default(val: EppyVal, obj: EpBunch, name: str) -> str:
+    """Return a value, or its field default if empty."""
+    if isinstance(val, str) and (val.strip() == ""):
         val = get_default(obj, name)
 
     return str(val)
+
+
+def _with_default_if_defined(val: EppyVal, obj: EpBunch, name: str) -> str:
+    """Apply the field default to a value if empty and the default is defined."""
+    if obj.getfieldidd_item(name, "default"):
+        return with_default(val, obj, name)
+    else:
+        return str(val)
 
 
 def as_float(obj: EpBunch, name: str) -> float:
@@ -126,8 +130,8 @@ def equal(left: EppyVal, obj: EpBunch, name: str) -> bool:
 def equiv(left: EppyVal, obj: EpBunch, name: str) -> bool:
     """Return whether a given value equals a field value after applying defaults."""
     return _equal(
-        default_if_empty(left, obj, name),
-        default_if_empty(obj[name], obj, name),
+        _with_default_if_defined(left, obj, name),
+        _with_default_if_defined(obj[name], obj, name),
         obj,
         name,
     )
