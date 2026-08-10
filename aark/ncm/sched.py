@@ -2,6 +2,7 @@
 
 Caveats
 -------
+
 - a non-leap year is assumed
 - other gains schedules are not converted
 """
@@ -142,6 +143,7 @@ def read_scheds(
     -------
     tuple[PyODBCRows, PyODBCRows, PyODBCRows, PyODBCRows, PyODBCRows]
         A tuple containing:
+
         - rows of the `[annual_schedules]` table.
         - rows of the `[annual_weekly_schedules]` table.
         - rows of the `[weekly_schedules]` table.
@@ -220,6 +222,7 @@ def convert_scheds(  # noqa: PLR0915
     -------
     tuple[SchedMap, epJSONObjs]
         An epJSON schedule library containing:
+
         - a map of annual schedule ids to epJSON object names grouped by EP object type.
         - a map of epJSON object names to epJSON object bodies.
     """

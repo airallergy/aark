@@ -2,13 +2,12 @@
 
 Nomenclature
 ------------
-Trm
-    Exponentially weighted running mean outdoor air temperature, degrees
-    Celsius.
-Top
-    Indoor operative temperature, degrees Celsius.
-Ta
-    Indoor air temperature, degrees Celsius.
+
+| Symbol | Definition                                                                    |
+| ------ | ----------------------------------------------------------------------------- |
+| `Trm`  | Exponentially weighted running mean outdoor air temperature, degrees Celsius. |
+| `Top`  | Indoor operative temperature, degrees Celsius.                                |
+| `Ta`   | Indoor air temperature, degrees Celsius.                                      |
 
 Notes
 -----

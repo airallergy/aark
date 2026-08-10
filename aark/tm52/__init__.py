@@ -2,15 +2,13 @@
 
 Nomenclature
 ------------
-Tod
-    Daily mean outdoor air temperature, degrees Celsius.
-Trm
-    Exponentially weighted running mean outdoor air temperature, degrees
-    Celsius.
-Top
-    Indoor operative temperature, degrees Celsius.
-Tmax
-    Maximum acceptable operative temperature, degrees Celsius.
-deltaT
-    `Top - Tmax`, rounded to the nearest whole number, kelvin.
+
+| Symbol   | Definition                                                                    |
+| -------- | ----------------------------------------------------------------------------- |
+| `Tod`    | Daily mean outdoor air temperature, degrees Celsius.                          |
+| `Trm`    | Exponentially weighted running mean outdoor air temperature, degrees Celsius. |
+| `Top`    | Indoor operative temperature, degrees Celsius.                                |
+| `Tmax`   | Maximum acceptable operative temperature, degrees Celsius.                    |
+| `deltaT` | `Top - Tmax`, rounded to the nearest whole number, kelvin.                    |
+
 """

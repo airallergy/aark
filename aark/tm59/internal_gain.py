@@ -197,33 +197,33 @@ def apply(
     list[dict[str, list[str]]]
     ```
 
-    Each item is a single `zone_map` representing either a dwelling or a collection of
-    communal corridors. Each `zone_map` key is a TM59 room type, and each value is a list of
-    zone names. An example of `zone_maps` is:
+    Each item is a single `zone_map` representing either a dwelling or a collection
+    of communal corridors. Each `zone_map` key is a TM59 room type, and each value is
+    a list of zone names. An example of `zone_maps` is:
 
     ```python
     zone_maps = [
-    {
-        "living_kitchen": ["flat_1_living_kitchen"],
-        "double_bedroom": ["flat_1_bedroom_1", "flat_1_bedroom_2"],
-        "single_bedroom": ["flat_1_bedroom_3"],
-        "bathroom": ["flat_1_bathroom"],
-        "hall": ["flat_1_hall"],
-    },
-    {
-        "living": ["flat_2_living"],
-        "kitchen": ["flat_2_kitchen"],
-        "double_bedroom": ["flat_2_bedroom"],
-        "bathroom": ["flat_2_bathroom"],
-        "hall": ["flat_2_hall"],
-    },
-    {
-        "communal_corridor": [
-            "corridor_floor_1",
-            "corridor_floor_2",
-            "corridor_floor_3",
-        ]
-    },
+        {
+            "living_kitchen": ["flat_1_living_kitchen"],
+            "double_bedroom": ["flat_1_bedroom_1", "flat_1_bedroom_2"],
+            "single_bedroom": ["flat_1_bedroom_3"],
+            "bathroom": ["flat_1_bathroom"],
+            "hall": ["flat_1_hall"],
+        },
+        {
+            "living": ["flat_2_living"],
+            "kitchen": ["flat_2_kitchen"],
+            "double_bedroom": ["flat_2_bedroom"],
+            "bathroom": ["flat_2_bathroom"],
+            "hall": ["flat_2_hall"],
+        },
+        {
+            "communal_corridor": [
+                "corridor_floor_1",
+                "corridor_floor_2",
+                "corridor_floor_3",
+            ]
+        },
     ]
     ```
     """

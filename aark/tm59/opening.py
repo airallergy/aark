@@ -242,19 +242,19 @@ def apply(
     dict[str, list[str]]
     ```
 
-    Each key is a TM59 habitable room type, and each value is a list of external window
-    names. `window_map` covers the whole model and is not grouped by dwelling. An example of
-    `window_map` is:
+    Each key is a TM59 habitable room type, and each value is a list of external
+    window names. `window_map` covers the whole model and is not grouped by dwelling.
+    An example of `window_map` is:
 
     ```python
     window_map = {
-    "living_kitchen": [
-        "flat_1_living_kitchen_window",
-        "flat_2_living_kitchen_patio_door",
-    ],
-    "double_bedroom": [
-        "flat_1_bedroom_window",
-    ],
+        "living_kitchen": [
+            "flat_1_living_kitchen_window",
+            "flat_2_living_kitchen_patio_door",
+        ],
+        "double_bedroom": [
+            "flat_1_bedroom_window",
+        ],
     }
     ```
 
@@ -268,8 +268,8 @@ def apply(
 
     ```python
     doors = [
-    "flat_1_living-kitchen_door",
-    "flat_2_bedroom-kitchen_door",
+        "flat_1_living-kitchen_door",
+        "flat_2_bedroom-kitchen_door",
     ]
     ```
     """
