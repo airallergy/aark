@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 import aark.ep._pact
 import aark.ep.afn
+import aark.ep.field
 import aark.ep.obj
 import aark.ep.sched
 import aark.tm59._utils
@@ -89,6 +90,11 @@ def _add_window(
 ) -> None:
     """Add control for the window."""
     window_name = afn_surface_obj.Surface_Name
+    max_vent_factor = aark.ep.field.default_if_empty(
+        afn_surface_obj.WindowDoor_Opening_Factor_or_Crack_Factor,
+        afn_surface_obj,
+        "WindowDoor_Opening_Factor_or_Crack_Factor",
+    )
     avail_sched_obj_name = aark.tm59._utils.prefix(f"window_avail_{room_type}")
     avail_sensor_obj_name = aark.tm59._utils.erl_uid("window_avail", room_type)
     Ta_sensor_obj_name = aark.tm59._utils.erl_uid("Ta", zone_name)
@@ -97,7 +103,7 @@ def _add_window(
     program_lines = (
         f"IF {avail_sensor_obj_name} > 0",
         f"IF {Ta_sensor_obj_name} > {WINDOW_OPENING_THRESHOLD}",
-        f"SET {actuator_obj_name} = 1",
+        f"SET {actuator_obj_name} = {max_vent_factor}",
         "ELSE",
         f"SET {actuator_obj_name} = 0",
         "ENDIF",
@@ -122,7 +128,6 @@ def _add_window(
     )
 
     # modify the AFN surface object
-    afn_surface_obj.WindowDoor_Opening_Factor_or_Crack_Factor = "1"
     afn_surface_obj.Ventilation_Control_Mode = "Constant"
     afn_surface_obj.Venting_Availability_Schedule_Name = avail_sched_obj_name
 
@@ -212,7 +217,6 @@ def _apply_internal_doors(
         afn_surface_obj = aark.ep.afn.get_surface_obj(idf, door_name)
 
         # modify the AFN surface object
-        afn_surface_obj.WindowDoor_Opening_Factor_or_Crack_Factor = "1"
         afn_surface_obj.Ventilation_Control_Mode = "Constant"
         afn_surface_obj.Venting_Availability_Schedule_Name = sched_obj_name
 
@@ -286,6 +290,22 @@ def apply(
 # -----------------------------------------------------------------------------
 
 
+def _validate_afn_opening(idf: IDF, fenestration_name: str) -> None:
+    """Validate a fenestration has an Airflow Network opening component object."""
+    afn_surface_obj = aark.ep.afn.get_surface_obj(idf, fenestration_name)
+
+    if not any(
+        aark.ep.obj.has_named(idf, cls_name, afn_surface_obj.Leakage_Component_Name)
+        for cls_name in (
+            "AirflowNetwork:MultiZone:Component:DetailedOpening",
+            "AirflowNetwork:MultiZone:Component:SimpleOpening",
+        )
+    ):
+        raise ValueError(
+            f"Fenestration has no Airflow Network opening component: {fenestration_name}."
+        )
+
+
 def _validate_erl_uids(*src_names: str) -> None:
     """Validate that unique source names produce unique Erl uids."""
     unique_src_names = set(src_names)
@@ -332,7 +352,7 @@ def _validate_window_map(idf: IDF, window_map: RoomMap) -> None:
 
     # NOTE: fast fail
     for window_name in window_names:
-        aark.ep.afn.validate_opening(idf, window_name)
+        _validate_afn_opening(idf, window_name)
 
 
 def _validate_doors(idf: IDF, doors: Sequence[str]) -> None:
@@ -348,4 +368,4 @@ def _validate_doors(idf: IDF, doors: Sequence[str]) -> None:
         # the door must exist in the idf
         aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", door_name)
 
-        aark.ep.afn.validate_opening(idf, door_name)
+        _validate_afn_opening(idf, door_name)
