@@ -41,6 +41,12 @@ VAL_TYPE2LIMITS = {
         "Numeric_Type": "Continuous",
         "Unit_Type": "ActivityLevel",
     },
+    "Control": {
+        "Lower_Limit_Value": "0",
+        "Upper_Limit_Value": "4",
+        "Numeric_Type": "Discrete",
+        "Unit_Type": "Dimensionless",
+    },
 }
 
 
