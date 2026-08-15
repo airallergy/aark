@@ -151,7 +151,7 @@ def convert_to_world_coord_sys(idf: IDF) -> None:
     ------------------
     `Building North Axis` and `Zone Direction of Relative North` are zero or unused.
     """
-    # validate aark assumptions
+    # validate aark requirements
     aark.ep._pact.validate_no_building_rel_north(idf)
     aark.ep._pact.validate_no_zone_rel_north(idf)
 

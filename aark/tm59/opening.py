@@ -273,7 +273,7 @@ def apply(
     ]
     ```
     """
-    # validate aark assumptions
+    # validate aark requirements
     aark.ep._pact.validate_ep_ver(idf)
     aark.ep._pact.validate_no_space(idf)
 

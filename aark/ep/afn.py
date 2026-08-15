@@ -10,7 +10,7 @@ if TYPE_CHECKING:
 
 
 def get_surface_obj(idf: IDF, surface_name: str) -> EpBunch:
-    """Get a unique Airflow Network surface object linked to a surface."""
+    """Get a unique AirflowNetwork surface object linked to a surface."""
     objs = [
         obj
         for obj in idf.idfobjects["AirflowNetwork:MultiZone:Surface"]
@@ -18,9 +18,9 @@ def get_surface_obj(idf: IDF, surface_name: str) -> EpBunch:
     ]
 
     if not objs:
-        raise ValueError(f"Missing Airflow Network surface object: {surface_name}.")
+        raise ValueError(f"Missing AirflowNetwork surface object: {surface_name}.")
 
     if len(objs) > 1:
-        raise ValueError(f"Duplicate Airflow Network surface objects: {surface_name}.")
+        raise ValueError(f"Duplicate AirflowNetwork surface objects: {surface_name}.")
 
     return objs[0]
