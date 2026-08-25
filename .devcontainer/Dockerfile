@@ -6,4 +6,4 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     mdbtools \
     odbc-mdbtools
 
-RUN pipx install uv==0.11.*
+RUN pipx install uv==0.12.*
