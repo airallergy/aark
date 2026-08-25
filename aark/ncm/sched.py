@@ -269,7 +269,7 @@ def convert_scheds(  # noqa: PLR0915
         )
 
         for annual_weekly_sched_row in annual_weekly_sched_rows:
-            if annual_weekly_sched_row.ANNUAL_SCHEDULE != annual_sched_id:
+            if annual_sched_id != annual_weekly_sched_row.ANNUAL_SCHEDULE:
                 continue
 
             # get and add the weekly schedule's ep object name
@@ -283,7 +283,7 @@ def convert_scheds(  # noqa: PLR0915
 
             # get the weekly schedule row coincident with the weekly schedule id
             (weekly_sched_row,) = (
-                row for row in weekly_sched_rows if row.ID == weekly_sched_id
+                row for row in weekly_sched_rows if weekly_sched_id == row.ID
             )
 
             for day_type in WEEKLY_SCHED_DAY_TYPES:
@@ -298,7 +298,7 @@ def convert_scheds(  # noqa: PLR0915
 
                 # get the daily schedule row coincident with the daily schedule id
                 (daily_sched_row,) = (
-                    row for row in daily_sched_rows if row.ID == daily_sched_id
+                    row for row in daily_sched_rows if daily_sched_id == row.ID
                 )
 
                 # get and add the daily schedule type's ep object name
@@ -331,7 +331,7 @@ def convert_scheds(  # noqa: PLR0915
         sched_weeks = []
 
         for annual_weekly_sched_row in annual_weekly_sched_rows:
-            if annual_weekly_sched_row.ANNUAL_SCHEDULE != annual_sched_id:
+            if annual_sched_id != annual_weekly_sched_row.ANNUAL_SCHEDULE:
                 continue
 
             sched_weeks.append(
