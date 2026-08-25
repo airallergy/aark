@@ -1,33 +1,39 @@
 {
-  "name": "aark",
-  "containerEnv": {
-    "UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv"
-  },
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "postCreateCommand": "bash .devcontainer/setup.sh",
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "ms-python.python",
-        "ms-python.mypy-type-checker",
-        "charliermarsh.ruff"
-      ],
-      "settings": {
-        "python.defaultInterpreterPath": "/home/vscode/.venv/bin/python",
-        "[python]": {
-          "editor.codeActionsOnSave": {
-            "source.organizeImports": "explicit",
-            "source.fixAll": "explicit"
-          },
-          "editor.defaultFormatter": "charliermarsh.ruff"
-        },
-        "editor.formatOnSave": true,
-        "mypy-type-checker.importStrategy": "fromEnvironment",
-        "ruff.importStrategy": "fromEnvironment"
-      }
-    }
-  },
-  "remoteUser": "vscode"
+    "name": "aark",
+    "containerEnv": {
+        "UV_PROJECT_ENVIRONMENT": "/home/vscode/.venv"
+    },
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "postCreateCommand": "bash .devcontainer/setup.sh",
+    "waitFor": "postCreateCommand",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.mypy-type-checker",
+                "charliermarsh.ruff"
+            ],
+            "settings": {
+                "[python]": {
+                    "editor.codeActionsOnSave": {
+                        "source.organizeImports": "explicit",
+                        "source.fixAll": "explicit"
+                    },
+                    "editor.defaultFormatter": "charliermarsh.ruff"
+                },
+                "editor.formatOnSave": true,
+                "mypy-type-checker.importStrategy": "fromEnvironment",
+                "python-envs.alwaysUseUv": true,
+                "python-envs.defaultEnvManager": "ms-python.python:venv",
+                "python-envs.defaultPackageManager": "ms-python.python:pip",
+                "python-envs.terminal.autoActivationType": "command",
+                "python.defaultInterpreterPath": "/home/vscode/.venv/bin/python",
+                "python.useEnvironmentsExtension": true,
+                "ruff.importStrategy": "fromEnvironment"
+            }
+        }
+    },
+    "remoteUser": "vscode"
 }
