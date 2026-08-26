@@ -38,10 +38,10 @@ def translator(dx: float, dy: float, dz: float = 0.0) -> FloatArr2D:
     return m
 
 
-def rotator_z(dphi_rad: float) -> FloatArr2D:
+def rotator_z(dphi: float) -> FloatArr2D:
     """Create a 4x4 rotation matrix about the Z axis through the origin."""
-    c = np.cos(dphi_rad)
-    s = np.sin(dphi_rad)
+    c = np.cos(dphi)
+    s = np.sin(dphi)
 
     m = np.eye(4, dtype=float)
     m[0, 0] = c
