@@ -45,9 +45,7 @@ def validate_ep_ver(idf: IDF) -> None:
     # check that the idf and the idd have the same version
     if idf_ver != idd_ver:
         raise ValueError(
-            "IDD and IDF versions do not match: "
-            f"IDD={idd_ver[0]}.{idd_ver[1]}, "
-            f"IDF={idf_ver[0]}.{idf_ver[1]}."
+            f"IDD and IDF versions do not match: IDD={ep_ver_as_str(idd_ver)}, IDF={ep_ver_as_str(idf_ver)}."
         )
 
 
@@ -55,7 +53,7 @@ def validate_no_building_rel_north(idf: IDF) -> None:
     """Validate that the building's north axis is zero or unused."""
     (building_obj,) = idf.idfobjects["Building"]
     if not aark.ep.field.equiv(0, building_obj, "North_Axis"):
-        raise ValueError(f"Building.North_Axis is not zero: {building_obj}.")
+        raise ValueError(f"`Building.North_Axis` is not zero: {building_obj}.")
 
     building_obj.North_Axis = ""
 
@@ -66,15 +64,15 @@ def validate_no_zone_rel_north(idf: IDF) -> None:
     for zone_obj in idf.idfobjects["Zone"]:
         if not aark.ep.field.equiv(0, zone_obj, "Direction_of_Relative_North"):
             raise ValueError(
-                f"Zone.Direction_of_Relative_North is not zero: {zone_obj}."
+                f"`Zone.Direction_of_Relative_North` is not zero: {zone_obj}."
             )
 
         zone_obj.Direction_of_Relative_North = ""
 
 
 def validate_no_space(idf: IDF) -> None:
-    """Validate that idf does not use EnergyPlus spaces."""
+    """Validate that the IDF does not use EnergyPlus `Space` objects."""
     space_objs = idf.idfobjects["Space"]
 
     if space_objs:
-        raise ValueError(f"Space object is not supported: {space_objs}.")
+        raise ValueError(f"`Space` object is not supported: {space_objs}.")

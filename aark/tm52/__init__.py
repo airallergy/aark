@@ -3,12 +3,12 @@
 Nomenclature
 ------------
 
-| Symbol   | Definition                                                       |
-| -------- | ---------------------------------------------------------------- |
-| `Tod`    | Daily mean outdoor air temperature, °C.                          |
-| `Trm`    | Exponentially weighted running mean outdoor air temperature, °C. |
-| `Top`    | Indoor operative temperature, °C.                                |
-| `Tmax`   | Maximum acceptable operative temperature, °C.                    |
-| `deltaT` | `Top - Tmax`, rounded to the nearest whole number, K.            |
+| Symbol  | Unit | Definition                                                    |
+| ------- | ---- | ------------------------------------------------------------- |
+| `Tod`   | °C   | Daily mean outdoor air temperature.                           |
+| `Trm`   | °C   | Exponentially weighted running mean outdoor air temperature.  |
+| `Top`   | °C   | Indoor operative temperature.                                 |
+| `Tmax`  | °C   | Maximum acceptable operative temperature.                     |
+| `dT`    | K    | `Top - Tmax`, rounded to the nearest whole number.            |
 
 """

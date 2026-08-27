@@ -19,7 +19,7 @@ def prefix(s: str) -> str:
         raise ValueError(f"Empty string: {s}.")
 
     if s.upper().startswith(__package__.upper()):
-        raise ValueError(f"String already has a {__package__} prefix: {s}.")
+        raise ValueError(f"Prefix already exists: {s}.")
 
     return f"{__package__}_{s}"
 

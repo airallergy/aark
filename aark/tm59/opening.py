@@ -127,7 +127,7 @@ def _add_window(
         idf, avail_sched_obj_name, "On/Off", *avail_sched_blocks
     )
 
-    # modify the AFN surface object
+    # modify the afn surface object
     afn_surface_obj.Ventilation_Control_Mode = "Constant"
     afn_surface_obj.Venting_Availability_Schedule_Name = avail_sched_obj_name
 
@@ -216,7 +216,7 @@ def _apply_internal_doors(
     for door_name in doors:
         afn_surface_obj = aark.ep.afn.get_surface_obj(idf, door_name)
 
-        # modify the AFN surface object
+        # modify the afn surface object
         afn_surface_obj.Ventilation_Control_Mode = "Constant"
         afn_surface_obj.Venting_Availability_Schedule_Name = sched_obj_name
 
@@ -228,7 +228,7 @@ def apply(
     start_month_day: MonthDay = YEAR_START_MONTH_DAY,
     end_month_day: MonthDay = YEAR_END_MONTH_DAY,
 ) -> None:
-    """Apply the window and door openings to the idf.
+    """Apply the window and door openings to the IDF.
 
     `aark` requirements
     -------------------
@@ -291,7 +291,7 @@ def apply(
 
 
 def _validate_afn_opening(idf: IDF, fenestration_name: str) -> None:
-    """Validate a fenestration has an Airflow Network opening component object."""
+    """Validate a fenestration has an AirflowNetwork opening component object."""
     afn_surface_obj = aark.ep.afn.get_surface_obj(idf, fenestration_name)
 
     if not any(
@@ -302,17 +302,17 @@ def _validate_afn_opening(idf: IDF, fenestration_name: str) -> None:
         )
     ):
         raise ValueError(
-            f"Fenestration has no Airflow Network opening component: {fenestration_name}."
+            f"Fenestration has no AirflowNetwork opening component: {fenestration_name}."
         )
 
 
 def _validate_erl_uids(*src_names: str) -> None:
-    """Validate that unique source names produce unique Erl uids."""
+    """Validate that unique source names produce unique ERL UIDs."""
     unique_src_names = set(src_names)
 
-    # NOTE: even when object names in room maps exactly match a valid IDF, removing
+    # NOTE: even when object names in room maps exactly match a valid idf, removing
     # unsupported characters can leave distinct names differing only by case:
-    # `Window-A` and `windowa` become `WindowA` and `windowa`. Erl identifiers are
+    # `Window-A` and `windowa` become `WindowA` and `windowa`. erl identifiers are
     # case insensitive, so uids must be converted to uppercase before comparison.
     unique_erl_uids = {
         aark.tm59._utils.erl_uid("7", src_name).upper() for src_name in unique_src_names
@@ -320,7 +320,7 @@ def _validate_erl_uids(*src_names: str) -> None:
 
     if len(unique_src_names) != len(unique_erl_uids):
         raise ValueError(
-            f"Source names produce duplicate Erl uids: {unique_src_names}."
+            f"Source names produce duplicate ERL UIDs: {unique_src_names}."
         )
 
 

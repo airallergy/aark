@@ -90,7 +90,7 @@ def rstrip(obj: EpBunch) -> None:
     # remove leading/trailing whitespace from string field values
     obj.fieldvalues[:] = [
         val.strip() if isinstance(val, str) else val for val in obj.fieldvalues
-    ]  # obj.fieldvalues cannot be reassigned directly
+    ]  # `obj.fieldvalues` cannot be reassigned directly
 
     if all(val == "" for val in obj.fieldvalues[1:]):
         raise ValueError(f"Object is empty: {obj}.")

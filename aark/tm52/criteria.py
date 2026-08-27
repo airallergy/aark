@@ -48,7 +48,7 @@ def _parsed_criterion_args(
     aark._utils.validate_subperiod(
         start_month_day, end_month_day, SUMMER_START_MONTH_DAY, SUMMER_END_MONTH_DAY
     )
-    aark.tm52.adaptive.validate_category(category)
+    # category validation is delegated to `calc_Tmax`
 
     # convert
     n_daily_timesteps = 24 * n_hourly_timesteps
@@ -73,10 +73,10 @@ def _parsed_criterion_args(
     Tmax_2d = np.broadcast_to(Tmax[:, None], (Tmax.size, n_daily_timesteps))
     aark.arr.validate_equal_shape(Top, occupancy, datetimes_2d, Tmax_2d)
 
-    return _calc_deltaT(Top, Tmax), occupied, n_hourly_timesteps
+    return _calc_dT(Top, Tmax), occupied, n_hourly_timesteps
 
 
-def _calc_deltaT(Top: FloatArr2D, Tmax: FloatArr1D) -> FloatArr2D:
+def _calc_dT(Top: FloatArr2D, Tmax: FloatArr1D) -> FloatArr2D:
     """Calculate the operative temperature exceedance."""
     return aark.arr.round(Top - Tmax[:, None])
 
@@ -99,7 +99,7 @@ def assess_criterion_1(
 
     Hours of exceedance.
     """
-    deltaT, occupied, n_hourly_timesteps = _parsed_criterion_args(
+    dT, occupied, n_hourly_timesteps = _parsed_criterion_args(
         Top_1d,
         Trm_1d,
         occupancy_1d,
@@ -110,7 +110,7 @@ def assess_criterion_1(
     )
 
     # calculate criterion metric
-    exceeded = occupied & (deltaT >= 1)
+    exceeded = occupied & (dT >= 1)
     n_exceeded_timesteps = int(exceeded.sum())
     n_exceeded_hours = n_exceeded_timesteps / n_hourly_timesteps
 
@@ -143,7 +143,7 @@ def assess_criterion_2(
 
     Daily weighted exceedance.
     """
-    deltaT, occupied, n_hourly_timesteps = _parsed_criterion_args(
+    dT, occupied, n_hourly_timesteps = _parsed_criterion_args(
         Top_1d,
         Trm_1d,
         occupancy_1d,
@@ -154,7 +154,7 @@ def assess_criterion_2(
     )
 
     # calculate criterion metric
-    exceedance = np.maximum(deltaT, 0)
+    exceedance = np.maximum(dT, 0)
     max_daily_degree_hours = (
         int((exceedance * occupied).sum(axis=1).max()) / n_hourly_timesteps
     )
@@ -182,7 +182,7 @@ def assess_criterion_3(
 
     Upper limit temperature.
     """
-    deltaT, occupied, _ = _parsed_criterion_args(
+    dT, occupied, _ = _parsed_criterion_args(
         Top_1d,
         Trm_1d,
         occupancy_1d,
@@ -193,7 +193,7 @@ def assess_criterion_3(
     )
 
     # calculate criterion metric
-    max_exceedance = int(deltaT[occupied].max())
+    max_exceedance = int(dT[occupied].max())
 
     # calculate other return values
     passed = bool(max_exceedance <= CRITERION_3_THRESHOLD)

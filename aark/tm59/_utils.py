@@ -29,33 +29,33 @@ def prefix(s: str) -> str:
         raise ValueError(f"Empty string: {s}.")
 
     if s.upper().startswith(p.upper()):
-        raise ValueError(f"String already has a {p} prefix: {s}.")
+        raise ValueError(f"Prefix already exists: {s}.")
 
     return f"{p}{s}"
 
 
 def _uid(*args: str) -> str:
-    """Build a standard aark-generated uid."""
+    """Build a standard `aark`-generated UID."""
     args = tuple(arg for arg in args if arg)
 
     if not args:
-        raise ValueError(f"Empty uid arguments: {args}.")
+        raise ValueError(f"Empty UID arguments: {args}.")
 
     return prefix("_".join(args))
 
 
 def gain_uid(gain_type: str, zone_name: str) -> str:
-    """Build the uid of a zone-specific internal gain."""
+    """Build the UID of a zone-specific internal gain."""
     return _uid(gain_type, zone_name)
 
 
 def sched_uid(sched_type: str, room_type: str = "") -> str:
-    """Build the uid of an internal gain schedule."""
+    """Build the UID of an internal gain schedule."""
     return _uid(sched_type, room_type)
 
 
 def erl_uid(kind: str, src_name: str) -> str:
-    """Build an Erl-compatible uid."""
+    """Build an ERL-compatible UID."""
     _src_name = src_name
 
     if any(char.isspace() for char in src_name):
@@ -89,7 +89,7 @@ def validate_room_map(room_map: RoomMap) -> None:
         raise ValueError(f"Invalid room types: {invalid_room_types}.")
 
     for obj_names in room_map.values():
-        # an object name sequence must not be str
+        # an object name sequence must not be `str`
         if isinstance(obj_names, str):
             raise TypeError(f"Invalid object name sequence: {obj_names}.")
 
@@ -98,16 +98,14 @@ def validate_room_map(room_map: RoomMap) -> None:
 
 
 def validate_mapped_obj_names(idf: IDF, cls_name: str, *room_maps: RoomMap) -> None:
-    """Validate that mapped object names are unique and exist in the idf."""
+    """Validate that mapped object names are unique and exist in the IDF."""
     # get all mapped object names
     obj_names = [
         name for room_map in room_maps for names in room_map.values() for name in names
     ]
 
     # all object names must be unique
-    duplicate_names = sorted(
-        name for name, count in Counter(obj_names).items() if count > 1
-    )
+    duplicate_names = sorted(name for name, n in Counter(obj_names).items() if n > 1)
     if duplicate_names:
         raise ValueError(f"Duplicate {cls_name} object names: {duplicate_names}.")
 

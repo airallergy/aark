@@ -3,11 +3,11 @@
 Nomenclature
 ------------
 
-| Symbol | Definition                                                       |
-| ------ | ---------------------------------------------------------------- |
-| `Trm`  | Exponentially weighted running mean outdoor air temperature, °C. |
-| `Top`  | Indoor operative temperature, °C.                                |
-| `Ta`   | Indoor air temperature, °C.                                      |
+| Symbol | Unit | Definition                                                   |
+| ------ | ---- | ------------------------------------------------------------ |
+| `Trm`  | °C   | Exponentially weighted running mean outdoor air temperature. |
+| `Top`  | °C   | Indoor operative temperature.                                |
+| `Ta`   | °C   | Indoor air temperature.                                      |
 
 Notes
 -----

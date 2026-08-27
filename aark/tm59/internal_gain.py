@@ -183,7 +183,7 @@ def apply(
     start_month_day: MonthDay = YEAR_START_MONTH_DAY,
     end_month_day: MonthDay = YEAR_END_MONTH_DAY,
 ) -> None:
-    """Apply the internal gain profiles to the idf.
+    """Apply the internal gain profiles to the IDF.
 
     `aark` requirements
     -------------------

@@ -53,10 +53,10 @@ def calc_Trm(Tod_1d: Iterable[float]) -> FloatArr1D:
 
     if Tod.size not in (365, 366):
         raise ValueError(
-            f"Tod must contain a complete year of 365 or 366 days: {Tod.size}."
+            f"`Tod` must contain a complete year of 365 or 366 days: {Tod.size}."
         )
 
-    # equation 2.3 is a fixed seven-day approximation for alpha = 0.8.
+    # equation 2.3 is a fixed seven-day approximation for alpha = 0.8
     init_weights = np.array((1.0, 0.8, 0.6, 0.5, 0.4, 0.3, 0.2))
     init_Trm = np.dot(init_weights, Tod[-1:-8:-1]) / 3.8
 
@@ -69,6 +69,10 @@ def calc_Trm(Tod_1d: Iterable[float]) -> FloatArr1D:
 
 def calc_Tmax(Trm: FloatArr1D, category: int) -> FloatArr1D:
     """Calculate the maximum acceptable operative temperature."""
+    # validate
+    aark.arr.validate_finite(Trm)
+    _validate_category(category)
+
     return 0.33 * Trm + 21.8 + (category - 2)
 
 
@@ -77,7 +81,7 @@ def calc_Tmax(Trm: FloatArr1D, category: int) -> FloatArr1D:
 # -----------------------------------------------------------------------------
 
 
-def validate_category(category: int) -> None:
+def _validate_category(category: int) -> None:
     """Validate an adaptive comfort category."""
     if category not in (1, 2, 3):
         raise ValueError(f"Invalid adaptive category: {category}.")

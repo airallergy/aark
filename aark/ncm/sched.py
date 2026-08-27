@@ -3,8 +3,8 @@
 Caveats
 -------
 
-- a non-leap year is assumed
-- other gains schedules are not converted
+- A non-leap year is assumed.
+- Other gains schedules are not converted.
 """
 
 import datetime as dt
@@ -30,7 +30,7 @@ ACTIVITY_SCHED_COL_NAMES = (
     "EQUIPMENT_SCH",
     "COOL_SET_SCH",
     "HEAT_SET_SCH",
-    # "OTHER_GAINS_SCH",  # secondary schedule id to look up in [activity_other_gains]
+    # "OTHER_GAINS_SCH",  # secondary schedule id to look up in `activity_other_gains`
 )
 
 WEEKLY_SCHED_DAY_TYPES = (
@@ -86,9 +86,9 @@ def _fetch_filter(
 ) -> PyODBCRows:
     """Fetch rows of a table filtered by values in a given column.
 
-    NOTE: this fetch and filter approach is used instead of a SQL query with a WHERE
-    clause, because some ODBC driver apears to have a limit on the number of column
-    values to be filtered via WHERE.
+    NOTE: This fetch and filter approach is used instead of a database query with a `WHERE`
+    clause, because some ODBC driver appears to have a limit on the number of column
+    values to be filtered via `WHERE`.
     """
     col_vals = set(col_vals)
 
@@ -100,7 +100,7 @@ def _fetch_filter(
 def _next_month_day(month: int, day: int) -> MonthDay:
     """Return the next month and day given a month and day.
 
-    NOTE: this function hardcodes a non-leap year.
+    NOTE: This function hardcodes a non-leap year.
     """
     date = dt.date(2026, month, day) + dt.timedelta(days=1)
     return date.month, date.day
@@ -109,7 +109,7 @@ def _next_month_day(month: int, day: int) -> MonthDay:
 def _add_sched_map(
     sched_map: SchedMap, annual_sched_id: int, ep_obj_type: str, ep_obj_name: str
 ) -> None:
-    """Add mapping to an epJSON object name by annual schedule id and EP object type."""
+    """Add mapping to an epJSON object name by annual schedule identifier and EnergyPlus object type."""
     sched_map.setdefault(annual_sched_id, {})
     sched_map[annual_sched_id].setdefault(ep_obj_type, set())
     sched_map[annual_sched_id][ep_obj_type].add(ep_obj_name)
@@ -144,17 +144,17 @@ def read_scheds(
     tuple[PyODBCRows, PyODBCRows, PyODBCRows, PyODBCRows, PyODBCRows]
         A tuple containing:
 
-        - rows of the `[annual_schedules]` table.
-        - rows of the `[annual_weekly_schedules]` table.
-        - rows of the `[weekly_schedules]` table.
-        - rows of the `[daily_schedules]` table.
-        - rows of the `[schedules_type]` table.
+        - rows of the `[annual_schedules]` table
+        - rows of the `[annual_weekly_schedules]` table
+        - rows of the `[weekly_schedules]` table
+        - rows of the `[daily_schedules]` table
+        - rows of the `[schedules_type]` table
     """
     # get schedule type rows
     cur.execute("SELECT * FROM [schedules_type]")
     sched_type_rows = cur.fetchall()
 
-    # get annual schedule ids used in the [activity] table
+    # get annual schedule ids used in the `activity` table
     annual_sched_ids = {
         getattr(row, col_name)
         for row in activity_rows
@@ -171,13 +171,13 @@ def read_scheds(
         "annual_weekly_schedules", "ANNUAL_SCHEDULE", annual_sched_ids, cur
     )
 
-    # get weekly schedule ids used in the [annual_weekly_schedules] table
+    # get weekly schedule ids used in the `annual_weekly_schedules` table
     weekly_sched_ids = {row.WEEKLY_SCHEDULE for row in annual_weekly_sched_rows}
 
     # get weekly schedule rows
     weekly_sched_rows = _fetch_filter("weekly_schedules", "ID", weekly_sched_ids, cur)
 
-    # get daily schedule ids used in the [weekly_schedules] table
+    # get daily schedule ids used in the `weekly_schedules` table
     daily_sched_ids = {
         getattr(row, day_type)
         for row in weekly_sched_rows
@@ -223,11 +223,12 @@ def convert_scheds(  # noqa: PLR0915
     tuple[SchedMap, epJSONObjs]
         An epJSON schedule library containing:
 
-        - a map of annual schedule ids to epJSON object names grouped by EP object type.
-        - a map of epJSON object names to epJSON object bodies.
+        - a map of annual schedule identifiers to epJSON object names grouped by EnergyPlus
+          object type
+        - a map of epJSON object names to epJSON object bodies
     """
     # -----------------------------------------------------------------------------
-    # 1) create maps of ids to names
+    # 1) Create maps of ids to names
     # -----------------------------------------------------------------------------
 
     # create a map of schedule type ids to names
@@ -249,7 +250,7 @@ def convert_scheds(  # noqa: PLR0915
     }
 
     # -----------------------------------------------------------------------------
-    # 2) create a map of annual schedule ids to epJSON object names by object type
+    # 2) Create a map of annual schedule ids to epjson object names by object type
     # -----------------------------------------------------------------------------
 
     sched_map: SchedMap = {}
@@ -311,16 +312,16 @@ def convert_scheds(  # noqa: PLR0915
                 )
 
     # -----------------------------------------------------------------------------
-    # 3) convert annual, weekly and daily schedules to epJSON objects
+    # 3) Convert annual, weekly and daily schedules to epjson objects
     # -----------------------------------------------------------------------------
 
     epjson_objs: epJSONObjs = {}
 
-    # add epJSON `ScheduleTypeLimits` objects
+    # add epjson `ScheduleTypeLimits` objects
     for sched_type_name, epjson_obj_body in SCHED_TYPE_LIMITS_OBJS.items():
         _add_epjson_obj(epjson_objs, sched_type_name, epjson_obj_body)
 
-    # convert annual schedules to epJSON `Schedule:Year` objects
+    # convert annual schedules to epjson `Schedule:Year` objects
     for annual_sched_row in annual_sched_rows:
         annual_sched_id = annual_sched_row.ID
         annual_sched_name = annual_sched_id2name[annual_sched_id]
@@ -368,26 +369,26 @@ def convert_scheds(  # noqa: PLR0915
         # get schedule type name
         sched_type_name = sched_type_id2name[annual_sched_row.TYPE]
 
-        # create and add the epJSON `Schedule:Year` object
+        # create and add the epjson `Schedule:Year` object
         epjson_obj_body = {
             "schedule_type_limits_name": sched_type_name,
             "schedule_weeks": sched_weeks,
         }
         _add_epjson_obj(epjson_objs, annual_sched_name, epjson_obj_body)
 
-    # convert weekly schedules to epJSON `Schedule:Week:Daily` objects
+    # convert weekly schedules to epjson `Schedule:Week:Daily` objects
     for weekly_sched_row in weekly_sched_rows:
         weekly_sched_name = weekly_sched_id2name[weekly_sched_row.ID]
 
-        # create and add the epJSON `Schedule:Week:Daily` object
+        # create and add the epjson `Schedule:Week:Daily` object
         epjson_obj_body = {
             f"{day_type.lower()}_schedule_day_name": daily_sched_id2name[
                 getattr(weekly_sched_row, day_type)
             ]
             for day_type in WEEKLY_SCHED_DAY_TYPES
         }
-        # TODO: customday1 and customday2 can probably be safely ignored
-        #       but summerdesignday and winterdesignday need a better way to be handled
+        # TODO: `customday1` and `customday2` can probably be safely ignored
+        #       but `summerdesignday` and `winterdesignday` need a better way to be handled
         fallback_daily_sched_name = epjson_obj_body["holiday_schedule_day_name"]
         epjson_obj_body |= {
             "summerdesignday_schedule_day_name": fallback_daily_sched_name,
@@ -397,14 +398,14 @@ def convert_scheds(  # noqa: PLR0915
         }
         _add_epjson_obj(epjson_objs, weekly_sched_name, epjson_obj_body)
 
-    # convert daily schedules to epJSON `Schedule:Day:Hourly` objects
+    # convert daily schedules to epjson `Schedule:Day:Hourly` objects
     for daily_sched_row in daily_sched_rows:
         daily_sched_name = daily_sched_id2name[daily_sched_row.ID]
 
         # get schedule type name
         sched_type_name = sched_type_id2name[daily_sched_row.TYPE]
 
-        # create and add the epJSON `Schedule:Day:Hourly` object
+        # create and add the epjson `Schedule:Day:Hourly` object
         epjson_obj_body = {"schedule_type_limits_name": sched_type_name}
         epjson_obj_body |= {
             f"hour_{i + 1}": getattr(daily_sched_row, f"h{i:02d}") for i in range(24)
@@ -430,7 +431,8 @@ def pick_scheds(
     sched_categories : Sequence[str]
         NCM schedule categories of interest.
     sched_map : SchedMap
-        Map of annual schedule ids to epJSON object names grouped by EP object type.
+        Map of annual schedule identifiers to epJSON object names grouped by EnergyPlus
+        object type.
     epjson_objs : epJSONObjs
         Map of epJSON object names to epJSON object bodies.
     activity_rows : PyODBCRows
@@ -488,7 +490,7 @@ def get_scheds(
     # get activity rows
     activity_rows = _fetch_filter("activity", "NAME", room_names, cur)
 
-    # read NCM schedule data
+    # read ncm schedule data
     (
         annual_sched_rows,
         annual_weekly_sched_rows,
@@ -497,7 +499,7 @@ def get_scheds(
         sched_type_rows,
     ) = read_scheds(activity_rows, cur)
 
-    # convert NCM schedule data into an epJSON schedule library
+    # convert ncm schedule data into an epjson schedule library
     sched_map, epjson_objs = convert_scheds(
         annual_sched_rows,
         annual_weekly_sched_rows,
@@ -506,7 +508,7 @@ def get_scheds(
         sched_type_rows,
     )
 
-    # pick epJSON schedule objects given rooms and schedule categories
+    # pick epjson schedule objects given rooms and schedule categories
     return pick_scheds(
         room_names, sched_categories, sched_map, epjson_objs, activity_rows
     )

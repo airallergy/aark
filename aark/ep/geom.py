@@ -20,15 +20,6 @@ if TYPE_CHECKING:
 # -----------------------------------------------------------------------------
 
 
-def _check_points(points: FloatArr2D) -> None:
-    """Check if the point array has shape (n, 3)."""
-    if points.ndim != 2:
-        raise ValueError(f"Expected 2D array: {points}.")
-
-    if points.shape[1] != 3:
-        raise ValueError(f"Expected 3 columns: {points}.")
-
-
 def translator(dx: float, dy: float, dz: float = 0.0) -> FloatArr2D:
     """Create a 4x4 translation matrix."""
     m = np.eye(4, dtype=float)
@@ -57,7 +48,7 @@ def transform(points: FloatArr2D, transformer: FloatArr2D) -> FloatArr2D:
     transformer = np.asarray(transformer, dtype=float)
 
     # sanity check
-    _check_points(points)
+    _validate_points(points)
 
     if transformer.shape != (4, 4):
         raise ValueError(f"Expected 4x4 transformation matrix: {transformer}.")
@@ -83,14 +74,6 @@ def _make_vertex_fields_slicer(obj: EpBunch) -> slice:
     return slice(start_idx, None)
 
 
-def _check_vertices(vertices: FloatArr2D) -> None:
-    """Check if the vertex array is compatible with EnergyPlus detailed geometry."""
-    _check_points(vertices)
-
-    if vertices.shape[0] < 3:
-        raise ValueError(f"Expected at least 3 vertices: {vertices}.")
-
-
 def get_vertices(obj: EpBunch) -> FloatArr2D:
     """Get vertices of a detailed geometry object."""
     # read the vertex field values as a 1D list
@@ -108,7 +91,7 @@ def get_vertices(obj: EpBunch) -> FloatArr2D:
 
     # convert to a 2D array
     vertices = np.array(vertex_field_vals, dtype=float).reshape((-1, 3))
-    _check_vertices(vertices)
+    _validate_vertices(vertices)
 
     return vertices
 
@@ -118,7 +101,7 @@ def set_vertices(obj: EpBunch, vertices: FloatArr2D) -> None:
     vertices = np.asarray(vertices, dtype=float)
 
     # sanity check
-    _check_vertices(vertices)
+    _validate_vertices(vertices)
 
     # convert to a 1D list
     vertex_field_vals = vertices.reshape(-1).tolist()
@@ -128,8 +111,8 @@ def set_vertices(obj: EpBunch, vertices: FloatArr2D) -> None:
 
     # ensure the fieldvalues list is long enough to write the new vertices
     if len(obj.fieldvalues) < slicer.start:
-        n_pad = slicer.start - len(obj.fieldvalues)
-        obj.fieldvalues.extend([""] * n_pad)
+        pad_len = slicer.start - len(obj.fieldvalues)
+        obj.fieldvalues.extend([""] * pad_len)
 
     # write vertices
     obj.fieldvalues[slicer] = vertex_field_vals
@@ -137,7 +120,7 @@ def set_vertices(obj: EpBunch, vertices: FloatArr2D) -> None:
 
 
 def set_world_geom_rule(idf: IDF) -> None:
-    """Set the coordinate system to World."""
+    """Set the coordinate system to `World`."""
     (obj,) = idf.idfobjects["GlobalGeometryRules"]
     obj.Coordinate_System = "World"
     obj.Daylighting_Reference_Point_Coordinate_System = "World"
@@ -200,8 +183,8 @@ def _make_pair_map(pairs: list[frozenset[str]]) -> dict[str, str]:
         if len(pair) != 2:
             raise ValueError(f"Pair is self-reciprocal: {pair}.")
 
-    for pair, count in Counter(pairs).items():
-        if count != 2:
+    for pair, n in Counter(pairs).items():
+        if n != 2:
             raise ValueError(f"Pair is not reciprocal: {pair}.")
 
     # make map
@@ -230,21 +213,47 @@ def get_pair_maps(idf: IDF) -> tuple[dict[str, str], dict[str, str]]:
     subsurface2other_name = _make_pair_map(subsurface_name_pairs)
 
     # sanity check
-    for a, b in subsurface2other_name.items():
-        a_obj = aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", a)
-        b_obj = aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", b)
+    for subsurface_name, other_subsurface_name in subsurface2other_name.items():
+        subsurface_obj = aark.ep.obj.get_named(
+            idf, "FenestrationSurface:Detailed", subsurface_name
+        )
+        other_subsurface_obj = aark.ep.obj.get_named(
+            idf, "FenestrationSurface:Detailed", other_subsurface_name
+        )
 
-        a_surface_name = a_obj.Building_Surface_Name
-        b_surface_name = b_obj.Building_Surface_Name
+        surface_name = subsurface_obj.Building_Surface_Name
+        other_surface_name = other_subsurface_obj.Building_Surface_Name
 
-        has_a_surface = a_surface_name in surface2other_name
-        has_b_surface = b_surface_name in surface2other_name
+        has_surface = surface_name in surface2other_name
+        has_other_surface = other_surface_name in surface2other_name
 
-        assert has_a_surface != has_b_surface
+        assert has_surface != has_other_surface
 
-        if has_a_surface:
-            assert surface2other_name[a_surface_name] == b_surface_name
+        if has_surface:
+            assert surface2other_name[surface_name] == other_surface_name
         else:
-            assert surface2other_name[b_surface_name] == a_surface_name
+            assert surface2other_name[other_surface_name] == surface_name
 
     return surface2other_name, subsurface2other_name
+
+
+# -----------------------------------------------------------------------------
+# Validation
+# -----------------------------------------------------------------------------
+
+
+def _validate_points(points: FloatArr2D) -> None:
+    """Validate that the point array has shape (n, 3)."""
+    if points.ndim != 2:
+        raise ValueError(f"Expected 2D array: {points}.")
+
+    if points.shape[1] != 3:
+        raise ValueError(f"Expected 3 columns: {points}.")
+
+
+def _validate_vertices(vertices: FloatArr2D) -> None:
+    """Validate that the vertex array is compatible with EnergyPlus detailed geometry."""
+    _validate_points(vertices)
+
+    if vertices.shape[0] < 3:
+        raise ValueError(f"Expected at least 3 vertices: {vertices}.")

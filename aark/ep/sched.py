@@ -129,7 +129,7 @@ def add_compact_obj(idf: IDF, name: str, val_type: str, *blocks: Sequence[str]) 
     """Add a compact schedule object if it is absent."""
     # validate the blocks
     if not blocks:
-        raise ValueError(f"No compact schedule block: {name}.")
+        raise ValueError(f"No compact schedule block: {blocks}.")
 
     if any(not block for block in blocks):
         raise ValueError(f"Empty compact schedule blocks: {blocks}.")
