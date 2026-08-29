@@ -1,5 +1,6 @@
 """Manipulate EnergyPlus objects."""
 
+from collections import Counter
 from typing import TYPE_CHECKING
 
 import aark.ep.field
@@ -98,6 +99,24 @@ def rstrip(obj: EpBunch) -> None:
     # remove trailing empty fields
     while obj.fieldvalues[-1] == "":
         obj.fieldvalues.pop()
+
+
+# -----------------------------------------------------------------------------
+# Validation
+# -----------------------------------------------------------------------------
+
+
+def validate_obj_names(idf: IDF, cls_name: str, *obj_names: str) -> None:
+    """Validate that object names are unique and identify objects in the IDF."""
+    # object names must be unique
+    duplicate_names = sorted(name for name, n in Counter(obj_names).items() if n > 1)
+    if duplicate_names:
+        raise ValueError(f"Duplicate {cls_name} object names: {duplicate_names}.")
+
+    # NOTE: fast fail
+    for obj_name in obj_names:
+        # object names must identify objects in the idf
+        get_named(idf, cls_name, obj_name)
 
 
 # -----------------------------------------------------------------------------

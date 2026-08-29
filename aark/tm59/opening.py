@@ -341,12 +341,11 @@ def _validate_window_map(idf: IDF, window_map: RoomMap) -> None:
             f"Invalid room types for window opening: {invalid_room_types}."
         )
 
-    # mapped window names must be unique and exist in the idf
-    aark.tm59._utils.validate_mapped_obj_names(
-        idf, "FenestrationSurface:Detailed", window_map
-    )
-
     window_names = [name for names in window_map.values() for name in names]
+
+    # mapped window names must be unique and identify objects in the idf
+    aark.ep.obj.validate_obj_names(idf, "FenestrationSurface:Detailed", *window_names)
+
     zone_names = []
 
     # NOTE: fast fail
@@ -357,6 +356,9 @@ def _validate_window_map(idf: IDF, window_map: RoomMap) -> None:
         )
         zone_names.append(aark.ep.obj.get_zone(window_obj).Name)
 
+        # each window must have afn surface and opening component objects
+        _validate_afn_opening(idf, window_name)
+
     # zone names must produce valid erl uids without collisions
     _validate_erl_uids(*zone_names)
 
@@ -365,11 +367,6 @@ def _validate_window_map(idf: IDF, window_map: RoomMap) -> None:
 
     # room types must produce valid erl uids without collisions
     _validate_erl_uids(*window_map)
-
-    # NOTE: fast fail
-    for window_name in window_names:
-        # each window must have afn surface and opening component objects
-        _validate_afn_opening(idf, window_name)
 
 
 def _validate_doors(idf: IDF, doors: Sequence[str]) -> None:

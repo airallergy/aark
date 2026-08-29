@@ -293,8 +293,11 @@ def _validate_zone_maps(idf: IDF, zone_maps: Sequence[RoomMap]) -> None:
     for zone_map in zone_maps:
         _validate_zone_map(zone_map)
 
-    # mapped zone names must be unique and exist in the idf
-    aark.tm59._utils.validate_mapped_obj_names(idf, "Zone", *zone_maps)
+    # mapped zone names must be unique and identify objects in the idf
+    zone_names = [
+        name for zone_map in zone_maps for names in zone_map.values() for name in names
+    ]
+    aark.ep.obj.validate_obj_names(idf, "Zone", *zone_names)
 
 
 # -----------------------------------------------------------------------------
