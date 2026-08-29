@@ -22,7 +22,7 @@ def validate_ep_ver(idf: IDF) -> None:
         major, minor = ver
         return f"{major}.{minor}"
 
-    # check the version of the idd
+    # the idd version must meet the minimum
     idd_ver_major, idd_ver_minor, *_ = map(int, idf.idd_version)
     idd_ver = (idd_ver_major, idd_ver_minor)
 
@@ -31,7 +31,7 @@ def validate_ep_ver(idf: IDF) -> None:
             f"IDD version is not {ep_ver_as_str(MIN_EP_VER)} or later: {ep_ver_as_str(idd_ver)}."
         )
 
-    # check the version of the idf
+    # the idf version must meet the minimum
     (ver_obj,) = idf.idfobjects["Version"]
     idf_ver_str = str(ver_obj.Version_Identifier).strip()
     idf_ver_major, idf_ver_minor, *_ = map(int, idf_ver_str.split("."))
@@ -42,7 +42,7 @@ def validate_ep_ver(idf: IDF) -> None:
             f"IDF version is not {ep_ver_as_str(MIN_EP_VER)} or later: {ep_ver_as_str(idf_ver)}."
         )
 
-    # check that the idf and the idd have the same version
+    # the idd and idf versions must match
     if idf_ver != idd_ver:
         raise ValueError(
             f"IDD and IDF versions do not match: IDD={ep_ver_as_str(idd_ver)}, IDF={ep_ver_as_str(idf_ver)}."

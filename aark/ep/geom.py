@@ -244,16 +244,20 @@ def get_pair_maps(idf: IDF) -> tuple[dict[str, str], dict[str, str]]:
 
 def _validate_points(points: FloatArr2D) -> None:
     """Validate that the point array has shape (n, 3)."""
+    # a point array must be 2D
     if points.ndim != 2:
         raise ValueError(f"Expected 2D array: {points}.")
 
+    # a point must have three coordinates
     if points.shape[1] != 3:
         raise ValueError(f"Expected 3 columns: {points}.")
 
 
 def _validate_vertices(vertices: FloatArr2D) -> None:
     """Validate that the vertex array is compatible with EnergyPlus detailed geometry."""
+    # a vertex array must have shape (n, 3)
     _validate_points(vertices)
 
+    # a surface must have at least three vertices
     if vertices.shape[0] < 3:
         raise ValueError(f"Expected at least 3 vertices: {vertices}.")

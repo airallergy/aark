@@ -80,7 +80,6 @@ def validate_room_map(room_map: RoomMap) -> None:
     if not room_map:
         raise ValueError(f"Empty room map: {room_map}.")
 
-    # check room types
     room_types = set(room_map)
 
     # a room type must be valid
@@ -93,13 +92,13 @@ def validate_room_map(room_map: RoomMap) -> None:
         if isinstance(obj_names, str):
             raise TypeError(f"Invalid object name sequence: {obj_names}.")
 
-        if len(obj_names) == 0:
+        # an object name sequence must not be empty
+        if not obj_names:
             raise ValueError(f"Empty object name sequence: {obj_names}.")
 
 
 def validate_mapped_obj_names(idf: IDF, cls_name: str, *room_maps: RoomMap) -> None:
     """Validate that mapped object names are unique and exist in the IDF."""
-    # get all mapped object names
     obj_names = [
         name for room_map in room_maps for names in room_map.values() for name in names
     ]
@@ -109,6 +108,7 @@ def validate_mapped_obj_names(idf: IDF, cls_name: str, *room_maps: RoomMap) -> N
     if duplicate_names:
         raise ValueError(f"Duplicate {cls_name} object names: {duplicate_names}.")
 
-    # all object names must exist in the idf
+    # NOTE: fast fail
     for obj_name in obj_names:
+        # all object names must exist in the idf
         aark.ep.obj.get_named(idf, cls_name, obj_name)

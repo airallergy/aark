@@ -291,9 +291,11 @@ def apply(
 
 
 def _validate_afn_opening(idf: IDF, fenestration_name: str) -> None:
-    """Validate a fenestration has an AirflowNetwork opening component object."""
+    """Validate the AirflowNetwork objects for a fenestration."""
+    # a fenestration must have one afn surface object
     afn_surface_obj = aark.ep.afn.get_surface_obj(idf, fenestration_name)
 
+    # the afn surface must reference an opening component object
     if not any(
         aark.ep.obj.has_named(idf, cls_name, afn_surface_obj.Leakage_Component_Name)
         for cls_name in (
@@ -308,16 +310,19 @@ def _validate_afn_opening(idf: IDF, fenestration_name: str) -> None:
 
 def _validate_erl_uids(*src_names: str) -> None:
     """Validate that unique source names produce unique ERL UIDs."""
+    # NOTE: even when object names in room maps exactly match a valid idf, removing
+    #       unsupported characters can leave distinct names differing only by case:
+    #       `Window-A` and `windowa` become `WindowA` and `windowa`. erl identifiers are
+    #       case insensitive, so uids must be converted to uppercase before comparison.
+
     unique_src_names = set(src_names)
 
-    # NOTE: even when object names in room maps exactly match a valid idf, removing
-    # unsupported characters can leave distinct names differing only by case:
-    # `Window-A` and `windowa` become `WindowA` and `windowa`. erl identifiers are
-    # case insensitive, so uids must be converted to uppercase before comparison.
+    # source names must produce valid erl uids
     unique_erl_uids = {
         aark.tm59._utils.erl_uid("7", src_name).upper() for src_name in unique_src_names
     }
 
+    # erl uids must be unique case-insensitively
     if len(unique_src_names) != len(unique_erl_uids):
         raise ValueError(
             f"Source names produce duplicate ERL UIDs: {unique_src_names}."
@@ -325,41 +330,55 @@ def _validate_erl_uids(*src_names: str) -> None:
 
 
 def _validate_window_map(idf: IDF, window_map: RoomMap) -> None:
-    """Validate a window map for applying external window opening."""
+    """Validate one window map."""
+    # the window map must have a valid structure
     aark.tm59._utils.validate_room_map(window_map)
 
+    # room types must be valid for window opening
     invalid_room_types = set(window_map) - HABITABLE_ROOM_TYPES
     if invalid_room_types:
         raise ValueError(
             f"Invalid room types for window opening: {invalid_room_types}."
         )
 
+    # mapped window names must be unique and exist in the idf
     aark.tm59._utils.validate_mapped_obj_names(
         idf, "FenestrationSurface:Detailed", window_map
     )
 
     window_names = [name for names in window_map.values() for name in names]
     zone_names = []
+
+    # NOTE: fast fail
     for window_name in window_names:
+        # each window's parent surface and zone must exist exactly once
         window_obj = aark.ep.obj.get_named(
             idf, "FenestrationSurface:Detailed", window_name
         )
         zone_names.append(aark.ep.obj.get_zone(window_obj).Name)
 
+    # zone names must produce valid erl uids without collisions
     _validate_erl_uids(*zone_names)
+
+    # window names must produce valid erl uids without collisions
     _validate_erl_uids(*window_names)
+
+    # room types must produce valid erl uids without collisions
     _validate_erl_uids(*window_map)
 
     # NOTE: fast fail
     for window_name in window_names:
+        # each window must have afn surface and opening component objects
         _validate_afn_opening(idf, window_name)
 
 
 def _validate_doors(idf: IDF, doors: Sequence[str]) -> None:
     """Validate a sequence of doors for applying internal door opening."""
+    # the door sequence must not be empty
     if not doors:
         raise ValueError(f"Empty doors: {doors}.")
 
+    # doors must be provided as a non-string sequence
     if isinstance(doors, str):
         raise TypeError(f"Invalid door sequence: {doors}.")
 
@@ -368,4 +387,5 @@ def _validate_doors(idf: IDF, doors: Sequence[str]) -> None:
         # the door must exist in the idf
         aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", door_name)
 
+        # each door must have afn surface and opening component objects
         _validate_afn_opening(idf, door_name)

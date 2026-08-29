@@ -248,7 +248,8 @@ def apply(
 
 
 def _validate_zone_map(zone_map: RoomMap) -> None:
-    """Validate a room-to-zone map for applying internal gains."""
+    """Validate one room-to-zone map."""
+    # the zone map must have a valid structure
     aark.tm59._utils.validate_room_map(zone_map)
 
     room_types = set(zone_map)
@@ -273,6 +274,7 @@ def _validate_zone_map(zone_map: RoomMap) -> None:
             raise ValueError(f"Multiple studios: {studio_zone_names}.")
 
     else:
+        # a dwelling must contain at least one bedroom
         n_bedrooms = sum(
             len(zone_map.get(room_type, ())) for room_type in BEDROOM_TYPES
         )
@@ -282,11 +284,16 @@ def _validate_zone_map(zone_map: RoomMap) -> None:
 
 
 def _validate_zone_maps(idf: IDF, zone_maps: Sequence[RoomMap]) -> None:
-    """Validate all room-to-zone maps for applying internal gains."""
-    # validate the structure of each zone map
+    """Validate all room-to-zone maps."""
+    # the map sequence must not be empty
+    if not zone_maps:
+        raise ValueError(f"Empty zone maps: {zone_maps}.")
+
+    # each zone map must have a valid structure
     for zone_map in zone_maps:
         _validate_zone_map(zone_map)
 
+    # mapped zone names must be unique and exist in the idf
     aark.tm59._utils.validate_mapped_obj_names(idf, "Zone", *zone_maps)
 
 

@@ -71,9 +71,11 @@ def date_linspace(
 def validate_finite(*arrs: Arr1D) -> None:
     """Validate that 1D arrays are non-empty and finite."""
     for arr in arrs:
+        # an array must not be empty
         if arr.size == 0:
             raise ValueError(f"Empty array: {arr}.")
 
+        # array values must be finite
         if not np.all(np.isfinite(arr)):
             raise ValueError(f"Non-finite array: {arr}.")
 
