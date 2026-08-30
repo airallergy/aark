@@ -75,4 +75,17 @@ def validate_no_space(idf: IDF) -> None:
     space_objs = idf.idfobjects["Space"]
 
     if space_objs:
-        raise ValueError(f"`Space` object is not supported: {space_objs}.")
+        raise ValueError(f"Found `Space` objects: {space_objs}.")
+
+
+def validate_no_afn_objs(idf: IDF) -> None:
+    """Validate that the IDF has no AirflowNetwork objects."""
+    afn_objs = [
+        obj
+        for cls_name, objs in idf.idfobjects.items()
+        if cls_name.upper().startswith("AIRFLOWNETWORK:")
+        for obj in objs
+    ]
+
+    if afn_objs:
+        raise ValueError(f"Found AirflowNetwork objects: {afn_objs}.")

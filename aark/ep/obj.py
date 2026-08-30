@@ -119,6 +119,35 @@ def validate_obj_names(idf: IDF, cls_name: str, *obj_names: str) -> None:
         get_named(idf, cls_name, obj_name)
 
 
+def validate_no_other_surface(idf: IDF, cls_name: str, *surface_names: str) -> None:
+    """Validate that no interzonal surface pair has both sides present."""
+    # supplied surface names must identify objects of the specified class
+    surface_objs = [
+        get_named(idf, cls_name, surface_name) for surface_name in surface_names
+    ]
+
+    # other surface names must identify objects of the specified class
+    other_surface_objs = [
+        get_named(idf, cls_name, surface_obj.Outside_Boundary_Condition_Object)
+        for surface_obj in surface_objs
+    ]
+
+    # no interzonal surface pair may have both sides present
+    normalised_surface_names = {
+        aark.ep.field.normalise(surface_obj.Name, surface_obj, "Name")
+        for surface_obj in surface_objs
+    }
+    normalised_other_surface_names = {
+        aark.ep.field.normalise(other_surface_obj.Name, other_surface_obj, "Name")
+        for other_surface_obj in other_surface_objs
+    }
+
+    if normalised_surface_names & normalised_other_surface_names:
+        raise ValueError(
+            f"Found both sides of interzonal {cls_name} pairs: {surface_names}."
+        )
+
+
 # -----------------------------------------------------------------------------
 # Predication
 # -----------------------------------------------------------------------------
