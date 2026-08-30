@@ -199,7 +199,10 @@ def _apply_external_windows(
 
 
 def _apply_internal_doors(
-    idf: IDF, doors: Sequence[str], start_month_day: MonthDay, end_month_day: MonthDay
+    idf: IDF,
+    door_names: Sequence[str],
+    start_month_day: MonthDay,
+    end_month_day: MonthDay,
 ) -> None:
     """Apply the internal door openings.
 
@@ -213,7 +216,7 @@ def _apply_internal_doors(
     )
     aark.ep.sched.add_compact_obj(idf, sched_obj_name, "On/Off", *sched_blocks)
 
-    for door_name in doors:
+    for door_name in door_names:
         afn_surface_obj = aark.ep.afn.get_surface_obj(idf, door_name)
 
         # modify the afn surface object
@@ -369,18 +372,18 @@ def _validate_window_map(idf: IDF, window_map: RoomMap) -> None:
     _validate_erl_uids(*window_map)
 
 
-def _validate_doors(idf: IDF, doors: Sequence[str]) -> None:
+def _validate_doors(idf: IDF, door_names: Sequence[str]) -> None:
     """Validate a sequence of doors for applying internal door opening."""
     # the door sequence must not be empty
-    if not doors:
-        raise ValueError(f"Empty doors: {doors}.")
+    if not door_names:
+        raise ValueError(f"Empty doors: {door_names}.")
 
     # doors must be provided as a non-string sequence
-    if isinstance(doors, str):
-        raise TypeError(f"Invalid door sequence: {doors}.")
+    if isinstance(door_names, str):
+        raise TypeError(f"Invalid door sequence: {door_names}.")
 
     # NOTE: fast fail
-    for door_name in doors:
+    for door_name in door_names:
         # the door must exist in the idf
         aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", door_name)
 

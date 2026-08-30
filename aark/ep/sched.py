@@ -125,7 +125,9 @@ def add_type_limits_obj(idf: IDF, val_type: str) -> None:
     )
 
 
-def add_compact_obj(idf: IDF, name: str, val_type: str, *blocks: Sequence[str]) -> None:
+def add_compact_obj(
+    idf: IDF, obj_name: str, val_type: str, *blocks: Sequence[str]
+) -> None:
     """Add a compact schedule object if it is absent."""
     # validate the blocks
     if not blocks:
@@ -139,7 +141,7 @@ def add_compact_obj(idf: IDF, name: str, val_type: str, *blocks: Sequence[str]) 
 
     # add the compact schedule object
     obj_fields = {
-        "Name": name,
+        "Name": obj_name,
         "Schedule_Type_Limits_Name": aark._utils.prefix(val_type),
     }
     for i, val in enumerate(list(itertools.chain(*blocks)), start=1):

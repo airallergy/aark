@@ -10,11 +10,9 @@ equality of field values as follows.
 - Assumes a valid and internally consistent input IDF.
 
     - The IDF has no input errors when simulated.
-    - For existing objects in the IDF where some reference others by name, the object
-      names and their reference names are exactly equal in case and surrounding
-      whitespace.
-    - Object names in room maps exactly match their IDF object names in case and
-      surrounding whitespace.
+    - All user-supplied names that identify existing IDF objects exactly match the
+      objects' IDF names in case and surrounding whitespace. This includes reference
+      fields in other existing IDF objects.
 
 - Looks up field values in the input IDF considering case and surrounding whitespace.
 
