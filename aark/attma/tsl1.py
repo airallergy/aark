@@ -1,6 +1,8 @@
 """Create a complete minimal ATTMA TSL1 crack-infiltration AirflowNetwork."""
 
+import itertools
 import math
+import warnings
 from typing import TYPE_CHECKING
 
 import aark.ep._pact
@@ -15,11 +17,14 @@ if TYPE_CHECKING:
     type AirflowRecord = Mapping[str, str | Sequence[str]]
 
 
+_SHARED_AIR_PERMEABILITY_REL_TOLERANCE = 0.3
+
+
 def _get_all_vals_by_record_key(
     airflow_records: Sequence[AirflowRecord], key: str
 ) -> tuple[str, ...]:
     """Get all values for a key across airflow records."""
-    vals = []
+    all_vals = []
 
     for airflow_record in airflow_records:
         if key not in airflow_record:
@@ -27,11 +32,325 @@ def _get_all_vals_by_record_key(
 
         val = airflow_record[key]
         if isinstance(val, str):
-            vals.append(val)
+            all_vals.append(val)
         else:
-            vals.extend(val)
+            all_vals.extend(val)
 
-    return tuple(vals)
+    return tuple(all_vals)
+
+
+def _group_surface_pairs(
+    air_leakage_records: Sequence[AirflowRecord],
+    idf: IDF,
+    surface_name2area: Mapping[str, float],
+) -> tuple[dict[str, str], list[list[tuple[str, str]]]]:
+    """Group shared reciprocal surface pairs by unordered dwelling pair."""
+    # copy allocation surfaces for destructive pair discovery
+    all_allocation_surface_names = list(
+        _get_all_vals_by_record_key(air_leakage_records, "allocation_surfaces")
+    )
+    surface2other_surface_name = {}
+
+    # find all shared reciprocal surface pairs
+    while all_allocation_surface_names:
+        surface_name = all_allocation_surface_names.pop(0)
+        surface_obj = aark.ep.obj.get_named(
+            idf, "BuildingSurface:Detailed", surface_name
+        )
+
+        # only interzone surfaces can have reciprocal allocation surfaces
+        if not aark.ep.field.equal(
+            "Surface", surface_obj, "Outside_Boundary_Condition"
+        ):
+            continue
+
+        # the reciprocal surface must also be allocated
+        other_surface_name = surface_obj.Outside_Boundary_Condition_Object
+        if other_surface_name not in all_allocation_surface_names:
+            continue
+
+        # remove the other side
+        all_allocation_surface_names.remove(other_surface_name)
+
+        # reciprocal surface areas must agree
+        area = surface_name2area[surface_name]
+        other_area = surface_name2area[other_surface_name]
+        if not math.isclose(area, other_area):
+            raise ValueError(
+                f"Different areas for shared surfaces: {area, other_area}."
+            )
+
+        # map the lexicographically smaller one to the larger one
+        left, right = sorted((surface_name, other_surface_name))
+        surface2other_surface_name[left] = right
+
+    # group surface pairs by unordered dwelling pair
+    surface_name_pair_groups = []
+    for air_leakage_record, other_air_leakage_record in itertools.combinations(
+        air_leakage_records, 2
+    ):
+        # get the surfaces owned by each dwelling
+        allocation_surface_names = air_leakage_record["allocation_surfaces"]
+        other_allocation_surface_names = other_air_leakage_record["allocation_surfaces"]
+
+        # select shared pairs spanning this dwelling pair
+        surface_name_pairs = [
+            (surface_name, other_surface_name)
+            for surface_name, other_surface_name in surface2other_surface_name.items()
+            if (
+                (surface_name in allocation_surface_names)
+                and (other_surface_name in other_allocation_surface_names)
+            )
+            or (
+                (other_surface_name in allocation_surface_names)
+                and (surface_name in other_allocation_surface_names)
+            )
+        ]
+
+        if surface_name_pairs:
+            surface_name_pair_groups.append(surface_name_pairs)
+
+    return surface2other_surface_name, surface_name_pair_groups
+
+
+def _allocate_air_leakage_parse(
+    air_leakage_records: Sequence[AirflowRecord], idf: IDF
+) -> tuple[dict[str, float], set[str], dict[str, str], list[list[tuple[str, str]]]]:
+    """Parse the surface data required to allocate air leakage."""
+    surface_name2area = {}
+    adiabatic_surface_names = set()
+
+    # collect surface areas and adiabatic surfaces
+    for air_leakage_record in air_leakage_records:
+        allocation_surface_names = air_leakage_record["allocation_surfaces"]
+        for surface_name in allocation_surface_names:
+            surface_obj = aark.ep.obj.get_named(
+                idf, "BuildingSurface:Detailed", surface_name
+            )
+            surface_name2area[surface_name] = float(surface_obj.area)
+
+            if aark.ep.field.equal(
+                "Adiabatic", surface_obj, "Outside_Boundary_Condition"
+            ):
+                adiabatic_surface_names.add(surface_name)
+
+    # group reciprocal surfaces shared by dwelling pairs
+    surface2other_surface_name, surface_name_pair_groups = _group_surface_pairs(
+        air_leakage_records, idf, surface_name2area
+    )
+
+    return (
+        surface_name2area,
+        adiabatic_surface_names,
+        surface2other_surface_name,
+        surface_name_pair_groups,
+    )
+
+
+def _allocate_air_leakage_init(
+    air_leakage_records: Sequence[AirflowRecord], surface_name2area: Mapping[str, float]
+) -> tuple[dict[str, float], dict[str, float]]:
+    """Initialise air leakage allocation."""
+    surface_name2air_permeability: dict[str, float] = {}
+    surface_name2airflow_exponent: dict[str, float] = {}
+
+    for air_leakage_record in air_leakage_records:
+        air_leakage = float(str(air_leakage_record["air_leakage"]))
+        airflow_exponent = float(str(air_leakage_record["airflow_exponent"]))
+        allocation_surface_names = air_leakage_record["allocation_surfaces"]
+
+        # calculate the initial uniform air permeability
+        total_area = sum(
+            surface_name2area[surface_name] for surface_name in allocation_surface_names
+        )
+        air_permeability = air_leakage / total_area
+
+        # assign the initial parameters to each surface
+        for surface_name in allocation_surface_names:
+            surface_name2air_permeability[surface_name] = air_permeability
+            surface_name2airflow_exponent[surface_name] = airflow_exponent
+
+    return surface_name2air_permeability, surface_name2airflow_exponent
+
+
+def _fit_shared_exponent(n1: float, n2: float, ap1: float, ap2: float) -> float:
+    """Fit one 50 Pa-anchored exponent to the mean leakage-intensity curve."""
+    dp50 = 50
+    ap50 = (ap1 + ap2) / 2
+
+    sum_xy = 0.0
+    sum_x2 = 0.0
+    n_pressures = 100
+
+    # TODO: consider sampling below 1 Pa to represent normal operation
+    for i in range(n_pressures):
+        # sample logarithmically spaced pressure differentials
+        dp = dp50 ** (i / (n_pressures - 1))
+
+        # calculate the mean target leakage intensity `ap` at `dp`
+        ap = 0.5 * (ap1 * (dp / dp50) ** n1 + ap2 * (dp / dp50) ** n2)
+
+        # transform the anchored power law to `y = n x`
+        x = math.log(dp / dp50)
+        y = math.log(ap / ap50)
+
+        # accumulate the ordinary least-squares terms
+        sum_xy += x * y
+        sum_x2 += x**2
+
+    # solve for the fitted slope
+    return sum_xy / sum_x2
+
+
+def _allocate_air_leakage_reconcile(
+    surface_name2air_permeability: dict[str, float],
+    surface_name2airflow_exponent: dict[str, float],
+    surface_name_pair_groups: list[list[tuple[str, str]]],
+) -> None:
+    """Reconcile air leakage for shared surfaces."""
+    for surface_name_pairs in surface_name_pair_groups:
+        # surface pairs in the same dwelling pair group have identical initial parameters
+        # use the first surface pair as a reference for surface pairs
+        ref_surface_name, ref_other_surface_name = surface_name_pairs[0]
+
+        # get the initial parameters
+        air_permeability = surface_name2air_permeability[ref_surface_name]
+        other_air_permeability = surface_name2air_permeability[ref_other_surface_name]
+
+        exponent = surface_name2airflow_exponent[ref_surface_name]
+        other_exponent = surface_name2airflow_exponent[ref_other_surface_name]
+
+        # warn about a substantial initial permeability difference
+        air_permeability_rel_diff = abs(air_permeability - other_air_permeability) / (
+            (air_permeability + other_air_permeability) / 2
+        )
+        if air_permeability_rel_diff > _SHARED_AIR_PERMEABILITY_REL_TOLERANCE:
+            warnings.warn(
+                f"Air permeability difference between shared surfaces exceeds {_SHARED_AIR_PERMEABILITY_REL_TOLERANCE:.0%}: {surface_name_pairs}.",
+                stacklevel=3,
+            )
+
+        # derive shared parameters
+        shared_air_permeability = (air_permeability + other_air_permeability) / 2
+        shared_exponent = _fit_shared_exponent(
+            exponent, other_exponent, air_permeability, other_air_permeability
+        )
+
+        # assign the shared parameters to every surface pair
+        for surface_name, other_surface_name in surface_name_pairs:
+            surface_name2air_permeability[surface_name] = shared_air_permeability
+            surface_name2air_permeability[other_surface_name] = shared_air_permeability
+            surface_name2airflow_exponent[surface_name] = shared_exponent
+            surface_name2airflow_exponent[other_surface_name] = shared_exponent
+
+
+def _allocate_air_leakage_reallocate(
+    surface_name2air_permeability: dict[str, float],
+    air_leakage_records: Sequence[AirflowRecord],
+    surface_name2area: Mapping[str, float],
+    surface2other_surface_name: Mapping[str, str],
+) -> None:
+    """Reallocate remaining air leakage."""
+    # identify both sides of every shared surface pair
+    all_shared_surface_names = set(surface2other_surface_name) | set(
+        surface2other_surface_name.values()
+    )
+
+    for air_leakage_record in air_leakage_records:
+        air_leakage = float(str(air_leakage_record["air_leakage"]))
+        allocation_surface_names = set(air_leakage_record["allocation_surfaces"])
+
+        shared_surface_names = allocation_surface_names & all_shared_surface_names
+        non_shared_surface_names = allocation_surface_names - shared_surface_names
+
+        # calculate the remaining leakage
+        shared_leakage = sum(
+            surface_name2air_permeability[surface_name]
+            * surface_name2area[surface_name]
+            for surface_name in shared_surface_names
+        )
+        remaining_leakage = air_leakage - shared_leakage
+
+        if non_shared_surface_names:
+            if math.isclose(remaining_leakage, 0, rel_tol=0, abs_tol=1e-8):
+                # require non-zero remaining leakage when there are non-shared surfaces
+                raise ValueError(
+                    f"Approximately zero leakage remainder despite non-shared surfaces: {remaining_leakage}."
+                )
+
+            if remaining_leakage < 0:
+                # require non-negative remaining leakage when there are non-shared surfaces
+                raise ValueError(
+                    f"Negative leakage remainder after shared-surface reconciliation: {remaining_leakage}."
+                )
+
+            # distribute the remainder uniformly by surface area
+            total_non_shared_area = sum(
+                surface_name2area[surface_name]
+                for surface_name in non_shared_surface_names
+            )
+            remaining_air_permeability = remaining_leakage / total_non_shared_area
+
+            for surface_name in non_shared_surface_names:
+                surface_name2air_permeability[surface_name] = remaining_air_permeability
+
+        elif not math.isclose(remaining_leakage, 0, rel_tol=0, abs_tol=1e-8):
+            # require zero remaining leakage when every allocation surface is shared
+            raise ValueError(
+                f"Non-zero leakage remainder with no non-shared surfaces: {remaining_leakage}."
+            )
+
+
+def _allocate_air_leakage(
+    air_leakage_records: Sequence[AirflowRecord], idf: IDF
+) -> dict[str, tuple[float, float]]:
+    """Allocate air leakage to surfaces."""
+    # parse surface data
+    (
+        surface_name2area,
+        adiabatic_surface_names,
+        surface2other_surface_name,
+        surface_name_pair_groups,
+    ) = _allocate_air_leakage_parse(air_leakage_records, idf)
+
+    # step 1 - assign initial air permeability and exponent to each surface
+    surface_name2air_permeability, surface_name2airflow_exponent = (
+        _allocate_air_leakage_init(air_leakage_records, surface_name2area)
+    )
+
+    # step 2 - reconcile shared surfaces for each dwelling pair
+    _allocate_air_leakage_reconcile(
+        surface_name2air_permeability,
+        surface_name2airflow_exponent,
+        surface_name_pair_groups,
+    )
+
+    # step 3 - reallocate remaining leakage over non-shared surfaces
+    _allocate_air_leakage_reallocate(
+        surface_name2air_permeability,
+        air_leakage_records,
+        surface_name2area,
+        surface2other_surface_name,
+    )
+
+    # convert to air leakage and omit adiabatic and duplicate shared surfaces
+    surface_name2allocation = {}
+
+    for surface_name, air_permeability in surface_name2air_permeability.items():
+        # omit adiabatic surfaces
+        if surface_name in adiabatic_surface_names:
+            continue
+
+        # represent each shared boundary with one AirflowNetwork linkage
+        if surface_name in surface2other_surface_name.values():
+            continue
+
+        surface_name2allocation[surface_name] = (
+            air_permeability * surface_name2area[surface_name],
+            surface_name2airflow_exponent[surface_name],
+        )
+
+    return surface_name2allocation
 
 
 def apply(
@@ -132,6 +451,9 @@ def apply(
     _validate_wind_pressure_coeff_records(
         wind_pressure_coeff_records, idf, air_leakage_records
     )
+
+    # allocate leakage parameters
+    surface_name2allocation = _allocate_air_leakage(air_leakage_records, idf)
 
 
 # -----------------------------------------------------------------------------
@@ -372,34 +694,34 @@ def _validate_air_leakage_records(
         # each air leakage record must be valid
         _validate_air_leakage_record(air_leakage_record, idf)
 
-    allocation_surface_names = _get_all_vals_by_record_key(
+    all_allocation_surface_names = _get_all_vals_by_record_key(
         air_leakage_records, "allocation_surfaces"
     )
-    internal_door_names = _get_all_vals_by_record_key(
+    all_internal_door_names = _get_all_vals_by_record_key(
         air_leakage_records, "internal_doors"
     )
-    ambient_door_names = _get_all_vals_by_record_key(
+    all_ambient_door_names = _get_all_vals_by_record_key(
         air_leakage_records, "ambient_doors"
     )
 
     # allocation surface names must be unique and identify detailed building surfaces
     aark.ep.obj.validate_obj_names(
-        idf, "BuildingSurface:Detailed", *allocation_surface_names
+        idf, "BuildingSurface:Detailed", *all_allocation_surface_names
     )
 
     # internal door names must be unique and identify fenestration surfaces
     aark.ep.obj.validate_obj_names(
-        idf, "FenestrationSurface:Detailed", *internal_door_names
+        idf, "FenestrationSurface:Detailed", *all_internal_door_names
     )
 
     # only one side of each internal door must be supplied
     aark.ep.obj.validate_no_other_surface(
-        idf, "FenestrationSurface:Detailed", *internal_door_names
+        idf, "FenestrationSurface:Detailed", *all_internal_door_names
     )
 
     # ambient door names must be unique and identify fenestration surfaces
     aark.ep.obj.validate_obj_names(
-        idf, "FenestrationSurface:Detailed", *ambient_door_names
+        idf, "FenestrationSurface:Detailed", *all_ambient_door_names
     )
 
 
@@ -495,31 +817,31 @@ def _validate_wind_pressure_coeff_records(
         # each wind pressure coefficient record must be valid
         _validate_wind_pressure_coeff_record(wind_pressure_coeff_record, idf)
 
-    record_names = _get_all_vals_by_record_key(wind_pressure_coeff_records, "name")
-    external_surface_names = _get_all_vals_by_record_key(
+    all_record_names = _get_all_vals_by_record_key(wind_pressure_coeff_records, "name")
+    all_external_surface_names = _get_all_vals_by_record_key(
         wind_pressure_coeff_records, "external_surfaces"
     )
 
-    unique_record_names = set(record_names)
+    unique_record_names = set(all_record_names)
     normalised_record_names = {
         record_name.strip().upper() for record_name in unique_record_names
     }
 
     # record names must be unique
-    if len(record_names) != len(unique_record_names):
+    if len(all_record_names) != len(unique_record_names):
         raise ValueError(
-            f"Duplicate names in wind pressure coefficient records: {record_names}."
+            f"Duplicate names in wind pressure coefficient records: {all_record_names}."
         )
 
     # unique record names must not be equivalent
     if len(unique_record_names) != len(normalised_record_names):
         raise ValueError(
-            f"Equivalent names in wind pressure coefficient records: {record_names}."
+            f"Equivalent names in wind pressure coefficient records: {all_record_names}."
         )
 
     # external surface names must be unique and identify detailed building surfaces
     aark.ep.obj.validate_obj_names(
-        idf, "BuildingSurface:Detailed", *external_surface_names
+        idf, "BuildingSurface:Detailed", *all_external_surface_names
     )
 
     # all records must use the same angle sequence
@@ -534,32 +856,32 @@ def _validate_wind_pressure_coeff_records(
         )
 
     # every outdoor surface must have wind pressure coefficients
-    allocation_surface_names = _get_all_vals_by_record_key(
+    all_allocation_surface_names = _get_all_vals_by_record_key(
         air_leakage_records, "allocation_surfaces"
     )
-    ambient_door_names = _get_all_vals_by_record_key(
+    all_ambient_door_names = _get_all_vals_by_record_key(
         air_leakage_records, "ambient_doors"
     )
 
-    external_allocation_surface_names = {
+    all_external_allocation_surface_names = {
         surface_name
-        for surface_name in allocation_surface_names
+        for surface_name in all_allocation_surface_names
         if aark.ep.field.equal(
             "Outdoors",
             aark.ep.obj.get_named(idf, "BuildingSurface:Detailed", surface_name),
             "Outside_Boundary_Condition",
         )
     }
-    ambient_surface_names = {
+    all_ambient_surface_names = {
         aark.ep.obj.get_named(
             idf, "FenestrationSurface:Detailed", door_name
         ).Building_Surface_Name
-        for door_name in ambient_door_names
+        for door_name in all_ambient_door_names
     }
 
     missing_surface_names = (
-        external_allocation_surface_names | ambient_surface_names
-    ) - set(external_surface_names)
+        all_external_allocation_surface_names | all_ambient_surface_names
+    ) - set(all_external_surface_names)
     if missing_surface_names:
         raise ValueError(
             f"Missing wind pressure coefficients for outdoor surfaces: {missing_surface_names}."
