@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from eppy.modeleditor import IDF
 
     type AirflowRecord = Mapping[str, str | Sequence[str]]
+    type ParamTable = Mapping[str, str]
 
 
 _SHARED_AIR_PERMEABILITY_REL_TOLERANCE = 0.3
@@ -531,7 +532,7 @@ def _add_afn_opening(
     idf: IDF,
     internal_door_names: Sequence[str],
     ambient_door_names: Sequence[str],
-    door_airflow_params: Mapping[str, str],
+    airflow_tables: Mapping[str, ParamTable],
 ) -> None:
     """Add the shared closed-door detailed-opening components."""
     shared_obj_fields = {
@@ -539,16 +540,10 @@ def _add_afn_opening(
         "Extra_Crack_Length_or_Height_of_Pivoting_Axis": "0",
         "Number_of_Sets_of_Opening_Factor_Data": "2",
         "Opening_Factor_1": "0",
-        "Discharge_Coefficient_for_Opening_Factor_1": door_airflow_params[
-            "closed_discharge_coeff"
-        ],
         "Width_Factor_for_Opening_Factor_1": "0",
         "Height_Factor_for_Opening_Factor_1": "0",
         "Start_Height_Factor_for_Opening_Factor_1": "0",
         "Opening_Factor_2": "1",
-        "Discharge_Coefficient_for_Opening_Factor_2": door_airflow_params[
-            "open_discharge_coeff"
-        ],
         "Width_Factor_for_Opening_Factor_2": "1",
         "Height_Factor_for_Opening_Factor_2": "1",
         "Start_Height_Factor_for_Opening_Factor_2": "0",
@@ -559,11 +554,17 @@ def _add_afn_opening(
             idf,
             "AirflowNetwork:MultiZone:Component:DetailedOpening",
             Name=_uid("internal_door_opening"),
-            Air_Mass_Flow_Coefficient_When_Opening_is_Closed=door_airflow_params[
-                "internal_closed_mass_flow_coeff"
+            Air_Mass_Flow_Coefficient_When_Opening_is_Closed=airflow_tables[
+                "internal_door"
+            ]["closed_mass_flow_coeff"],
+            Air_Mass_Flow_Exponent_When_Opening_is_Closed=airflow_tables[
+                "internal_door"
+            ]["closed_mass_flow_exponent"],
+            Discharge_Coefficient_for_Opening_Factor_1=airflow_tables["internal_door"][
+                "closed_discharge_coeff"
             ],
-            Air_Mass_Flow_Exponent_When_Opening_is_Closed=door_airflow_params[
-                "internal_closed_mass_flow_exponent"
+            Discharge_Coefficient_for_Opening_Factor_2=airflow_tables["internal_door"][
+                "open_discharge_coeff"
             ],
             **shared_obj_fields,
         )
@@ -573,11 +574,17 @@ def _add_afn_opening(
             idf,
             "AirflowNetwork:MultiZone:Component:DetailedOpening",
             Name=_uid("ambient_door_opening"),
-            Air_Mass_Flow_Coefficient_When_Opening_is_Closed=door_airflow_params[
-                "ambient_closed_mass_flow_coeff"
+            Air_Mass_Flow_Coefficient_When_Opening_is_Closed=airflow_tables[
+                "ambient_door"
+            ]["closed_mass_flow_coeff"],
+            Air_Mass_Flow_Exponent_When_Opening_is_Closed=airflow_tables[
+                "ambient_door"
+            ]["closed_mass_flow_exponent"],
+            Discharge_Coefficient_for_Opening_Factor_1=airflow_tables["ambient_door"][
+                "closed_discharge_coeff"
             ],
-            Air_Mass_Flow_Exponent_When_Opening_is_Closed=door_airflow_params[
-                "ambient_closed_mass_flow_exponent"
+            Discharge_Coefficient_for_Opening_Factor_2=airflow_tables["ambient_door"][
+                "open_discharge_coeff"
             ],
             **shared_obj_fields,
         )
@@ -661,7 +668,7 @@ def apply(
     idf: IDF,
     air_leakage_records: Sequence[AirflowRecord],
     wind_pressure_coeff_records: Sequence[AirflowRecord],
-    door_airflow_params: Mapping[str, str],
+    airflow_tables: Mapping[str, ParamTable],
 ) -> None:
     """Apply the tested air leakage to the IDF.
 
@@ -746,17 +753,30 @@ def apply(
     ]
     ```
 
-    `door_airflow_params` contains the door-opening parameters. The ambient keys are
-    required only when an `air_leakage_record` supplies `ambient_doors`.
+    `airflow_tables` has the conceptual type:
 
     ```python
-    door_airflow_params = {
-        "internal_closed_mass_flow_coeff": "0.002",  # kg s-1 m-1 @ 1 Pa
-        "internal_closed_mass_flow_exponent": "0.6",
-        "closed_discharge_coeff": "1e-7",
-        "open_discharge_coeff": "0.69",
-        "ambient_closed_mass_flow_coeff": "3.25e-4",  # kg s-1 m-1 @ 1 Pa
-        "ambient_closed_mass_flow_exponent": "0.6",
+    dict[str, dict[str, str]]
+    ```
+
+    Each `airflow_table` contains parameters for internal or ambient doors listed in
+    `air_leakage_records`. The `ambient_door` key may be omitted when none of the
+    records contains an `ambient_doors` key. For example:
+
+    ```python
+    airflow_tables = {
+        "internal_door": {
+            "closed_mass_flow_coeff": "1.57e-3",  # kg s-1 m-1 @ 1 Pa
+            "closed_mass_flow_exponent": "0.6",
+            "closed_discharge_coeff": "1e-12",
+            "open_discharge_coeff": "0.61",
+        },
+        "ambient_door": {
+            "closed_mass_flow_coeff": "3.25e-4",  # kg s-1 m-1 @ 1 Pa
+            "closed_mass_flow_exponent": "0.6",
+            "closed_discharge_coeff": "1e-12",
+            "open_discharge_coeff": "0.61",
+        },
     }
     ```
     """
@@ -778,7 +798,7 @@ def apply(
     _validate_wind_pressure_coeff_records(
         wind_pressure_coeff_records, idf, air_leakage_records
     )
-    _validate_door_airflow_params(door_airflow_params, all_ambient_door_names)
+    _validate_airflow_tables(airflow_tables, all_ambient_door_names)
 
     # allocate leakage parameters
     surface_name2allocation = _allocate_air_leakage(air_leakage_records, idf)
@@ -795,7 +815,7 @@ def apply(
     _add_afn_ref_crack_condition(idf)
     _add_afn_cracks(idf, surface_name2allocation)
     _add_afn_opening(
-        idf, all_internal_door_names, all_ambient_door_names, door_airflow_params
+        idf, all_internal_door_names, all_ambient_door_names, airflow_tables
     )
     _add_afn_external_nodes(
         idf,
@@ -844,7 +864,7 @@ def _validate_airflow_record(
     numeric_sequence_keys: set[str],
     optional_textual_sequence_keys: set[str],
 ) -> None:
-    """Validate an airflow record."""
+    """Validate one airflow record."""
     required_keys = (
         textual_str_keys
         | numeric_str_keys
@@ -1238,32 +1258,36 @@ def _validate_wind_pressure_coeff_records(
         )
 
 
-def _validate_door_airflow_params(
-    door_airflow_params: Mapping[str, str], ambient_door_names: Sequence[str]
-) -> None:
-    """Validate door airflow parameter keys for the supplied door types."""
+def _validate_airflow_table(airflow_table: ParamTable) -> None:
+    """Validate one airflow table."""
     required_keys = {
-        "internal_closed_mass_flow_coeff",
-        "internal_closed_mass_flow_exponent",
+        "closed_mass_flow_coeff",
+        "closed_mass_flow_exponent",
         "closed_discharge_coeff",
         "open_discharge_coeff",
     }
-    optional_keys = {
-        "ambient_closed_mass_flow_coeff",
-        "ambient_closed_mass_flow_exponent",
-    }
+    if airflow_table.keys() != required_keys:
+        raise ValueError(f"Invalid airflow table keys: {airflow_table.keys()}.")
+
+
+def _validate_airflow_tables(
+    airflow_tables: Mapping[str, ParamTable], ambient_door_names: Sequence[str]
+) -> None:
+    """Validate all airflow tables."""
+    required_keys = {"internal_door"}
+    optional_keys = {"ambient_door"}
     valid_keys = required_keys | optional_keys
 
     # the mapping must contain all required keys and only allowed keys
-    if not required_keys <= set(door_airflow_params) <= valid_keys:
-        raise ValueError(
-            f"Invalid door airflow parameter keys: {door_airflow_params.keys()}."
-        )
+    if not required_keys <= set(airflow_tables) <= valid_keys:
+        raise ValueError(f"Invalid airflow table keys: {airflow_tables.keys()}.")
 
-    # ambient values must be supplied when ambient doors are supplied
-    if ambient_door_names:
-        missing_ambient_keys = optional_keys - door_airflow_params.keys()
-        if missing_ambient_keys:
-            raise ValueError(
-                f"Missing ambient door airflow parameter keys: {missing_ambient_keys}."
-            )
+    for airflow_table in airflow_tables.values():
+        # each airflow table must be valid
+        _validate_airflow_table(airflow_table)
+
+    # ambient parameters must be supplied when ambient doors are supplied
+    if ambient_door_names and ("ambient_door" not in airflow_tables):
+        raise ValueError(
+            f"Missing airflow table for ambient doors: {ambient_door_names}."
+        )
