@@ -86,6 +86,29 @@ def get_zone(obj: EpBunch) -> EpBunch:
             raise ValueError(f"Unsupported class: {obj.key}.")
 
 
+def get_other_zone(obj: EpBunch) -> EpBunch:
+    """Get the other zone object of an object."""
+    match obj.key.upper():
+        case "BUILDINGSURFACE:DETAILED":
+            surface_obj = obj
+        case "FENESTRATIONSURFACE:DETAILED":
+            surface_obj = get_parent(obj)
+        case _:
+            raise ValueError(f"Unsupported class: {obj.key}.")
+
+    if not aark.ep.field.equal("Surface", surface_obj, "Outside_Boundary_Condition"):
+        raise ValueError(
+            f"Invalid or unsupported outside boundary condition: {surface_obj.Outside_Boundary_Condition}."
+        )
+
+    other_surface_obj = get_named(
+        surface_obj.theidf,
+        "BuildingSurface:Detailed",
+        surface_obj.Outside_Boundary_Condition_Object,
+    )
+    return get_parent(other_surface_obj)
+
+
 def rstrip(obj: EpBunch) -> None:
     """Remove trailing empty fields of an object."""
     # remove leading/trailing whitespace from string field values

@@ -21,13 +21,18 @@ classifiers = [
     "Topic :: Scientific/Engineering",
     "Typing :: Typed",
 ]
-dependencies = ["eppy~=0.5.63", "numpy~=2.4", "pyodbc~=5.3"]
+# coolprop officially supports py314 from 7.2, while conda-forge has a 7.1 rebuild for py314
+# bump the floor to 7.2 once conda-forge catches up
+dependencies = ["coolprop~=7.1", "eppy~=0.5.63", "numpy~=2.4", "pyodbc~=5.3"]
 
 [project.urls]
 repository = "https://github.com/airallergy/aark"
 
 [dependency-groups]
 dev = ["mypy==2.3.*", "pytest~=9.1", "pytest-cov~=7.1", "ruff==0.16.*"]
+
+[tool.hatch.build]
+exclude = ["/aark/**/.ruff.toml"]
 
 [tool.uv]
 required-version = "==0.12.*"

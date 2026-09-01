@@ -11,6 +11,7 @@ name = "aark"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "coolprop" },
     { name = "eppy" },
     { name = "numpy" },
     { name = "pyodbc" },
@@ -26,6 +27,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "coolprop", specifier = "~=7.1" },
     { name = "eppy", specifier = "~=0.5.63" },
     { name = "numpy", specifier = "~=2.4" },
     { name = "pyodbc", specifier = "~=5.3" },
@@ -250,6 +252,24 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d8/53/6f443c9a4a8358a93a6792e2acffb9d9d5cb0a5cfd8802644b7b1c9a02e4/colorama-0.4.6.tar.gz", hash = "sha256:08695f5cb7ed6e0531a20572697297273c47b8cae5a63ffc6d6ed5c201be6e44", size = 27697, upload-time = "2022-10-25T02:36:22.414Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d1/d6/3965ed04c63042e047cb6a3e6ed1a63a35087b6a609aa3a15ed8ac56c221/colorama-0.4.6-py2.py3-none-any.whl", hash = "sha256:4f1d9991f5acc0ca119f9d443620b77f9d6b33703e51011c16baf57afb285fc6", size = 25335, upload-time = "2022-10-25T02:36:20.889Z" },
+]
+
+[[package]]
+name = "coolprop"
+version = "7.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/9f/5f/6b82cda1078c7abf70151c33ecb6a5a72f40facac0952e1c72ae3daabe5e/coolprop-7.2.0.tar.gz", hash = "sha256:b1e205d67e7f4f38e26d2ed0abb815e7a0f643b069407c238f3d1b3631791b75", size = 25517639, upload-time = "2025-11-01T18:49:38.448Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/56/8f/db1089a898c397e16ccdade6ad0d2ecb0fb401c5abb6753a4b17f05799d1/coolprop-7.2.0-cp314-cp314-macosx_11_0_arm64.whl", hash = "sha256:64e22e0c7f10151103105978732f2be8ffc2ed9412bcdc2af5ae2b5757581a06", size = 5626296, upload-time = "2025-11-01T18:49:15.369Z" },
+    { url = "https://files.pythonhosted.org/packages/49/bd/7bb2890928ae01d64a4461672c8e4caa0f9dcf512c7c66a0cd8ea0139324/coolprop-7.2.0-cp314-cp314-macosx_11_0_x86_64.whl", hash = "sha256:13226086468b6c34dc1a42661cc2d7e58d510ee16b1cce353af1bccc41c8efcb", size = 5752468, upload-time = "2025-11-01T18:49:17.123Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/2e/b2ba50a5886b3ac8ff629b333a4f9efa9f8c5b760dd24aec9a999e57a501/coolprop-7.2.0-cp314-cp314-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:5b41311957f42ff4df52344486a8f6bc3973df1c201bb5d224f786ff58bc303b", size = 6268507, upload-time = "2025-11-01T18:49:18.811Z" },
+    { url = "https://files.pythonhosted.org/packages/3e/54/8931dbd115118248d0d089d5b21da85c3a0dd478c582107368f9872540c5/coolprop-7.2.0-cp314-cp314-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:fa3149acadcca0f0e3ef6e5a634a803e0502bf5819dd7b2e7e01db3439a84ff5", size = 6478294, upload-time = "2025-11-01T18:49:20.421Z" },
+    { url = "https://files.pythonhosted.org/packages/13/8c/0e745b0c310c18a2ff43147782a64b9d325899c6da9670e090b576a6f4ef/coolprop-7.2.0-cp314-cp314-win32.whl", hash = "sha256:4dfacd25f3c42de1aea85c5080018fbf54fcb6d4eb83168fad7318af28f1546e", size = 5306991, upload-time = "2025-11-01T18:49:21.745Z" },
+    { url = "https://files.pythonhosted.org/packages/9b/ae/3d3b20c94fea1a429f7dcc1cf6e6d37a7c464a494526fd0084c5aa17418d/coolprop-7.2.0-cp314-cp314-win_amd64.whl", hash = "sha256:57e1b6d9dc1b9041bbc30b08040b89b5859176a490d4a574d6fb24b726e7e922", size = 5507327, upload-time = "2025-11-01T18:49:23.886Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/20/13f4df58f9d4d068c7609a9d945da7d57d3e848f10911911c0d0285748e1/coolprop-7.2.0-cp314-cp314-win_arm64.whl", hash = "sha256:fdeb8d797099a53578f6c35362604373cc98222ca31b0d57d9a58a73ccb9a01e", size = 5408073, upload-time = "2025-11-01T18:49:25.174Z" },
 ]
 
 [[package]]

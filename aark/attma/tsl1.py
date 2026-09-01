@@ -5,6 +5,9 @@ import math
 import warnings
 from typing import TYPE_CHECKING
 
+from CoolProp.CoolProp import PropsSI
+
+import aark._utils
 import aark.ep._pact
 import aark.ep.field
 import aark.ep.obj
@@ -18,6 +21,36 @@ if TYPE_CHECKING:
 
 
 _SHARED_AIR_PERMEABILITY_REL_TOLERANCE = 0.3
+
+_REF_TEMPERATURE = 20  # °C
+_REF_PRESSURE = 101325  # Pa
+_REF_HUMIDITY_RATIO = 0  # kg water kg-1 dry air
+_REF_AIR_DENSITY = float(  # float is not needed in coolprop 8 with typing
+    PropsSI("Dmass", "T", _REF_TEMPERATURE + 273.15, "P", _REF_PRESSURE, "Air")
+)  # kg m-3  # assumes _REF_HUMIDITY_RATIO == 0
+
+
+def prefix(s: str) -> str:
+    """Prepend the ATTMA TSL1 namespace to a string."""
+    p = aark._utils.prefix("attma_tsl1_")
+
+    if not s:
+        raise ValueError(f"Empty string: {s}.")
+
+    if s.upper().startswith(p.upper()):
+        raise ValueError(f"Prefix already exists: {s}.")
+
+    return f"{p}{s}"
+
+
+def _uid(*args: str) -> str:
+    """Build a standard `aark`-generated UID."""
+    args = tuple(arg for arg in args if arg)
+
+    if not args:
+        raise ValueError(f"Empty UID arguments: {args}.")
+
+    return prefix("_".join(args))
 
 
 def _get_all_vals_by_record_key(
@@ -353,10 +386,285 @@ def _allocate_air_leakage(
     return surface_name2allocation
 
 
+def _add_afn_simulation_control(idf: IDF) -> None:
+    """Add the AirflowNetwork simulation control."""
+    aark.ep.obj.add(
+        idf,
+        "AirflowNetwork:SimulationControl",
+        Name=_uid("simulation_control"),
+        AirflowNetwork_Control="MultizoneWithoutDistribution",
+        Wind_Pressure_Coefficient_Type="Input",
+        Height_Selection_for_Local_Wind_Pressure_Calculation="ExternalNode",
+        Height_Dependence_of_External_Node_Temperature="No",
+    )
+
+
+def _add_afn_zones(
+    idf: IDF,
+    allocated_surface_names: Sequence[str],
+    internal_door_names: Sequence[str],
+    ambient_door_names: Sequence[str],
+) -> None:
+    """Add the zones participating in the final linkage graph."""
+    for surface_name in allocated_surface_names:
+        surface_obj = aark.ep.obj.get_named(
+            idf, "BuildingSurface:Detailed", surface_name
+        )
+
+        aark.ep.obj.add(
+            idf,
+            "AirflowNetwork:MultiZone:Zone",
+            Zone_Name=aark.ep.obj.get_zone(surface_obj).Name,
+        )
+
+        if aark.ep.field.equal("Surface", surface_obj, "Outside_Boundary_Condition"):
+            aark.ep.obj.add(
+                idf,
+                "AirflowNetwork:MultiZone:Zone",
+                Zone_Name=aark.ep.obj.get_other_zone(surface_obj).Name,
+            )
+
+    for door_name in internal_door_names:
+        door_obj = aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", door_name)
+
+        aark.ep.obj.add(
+            idf,
+            "AirflowNetwork:MultiZone:Zone",
+            Zone_Name=aark.ep.obj.get_zone(door_obj).Name,
+        )
+        aark.ep.obj.add(
+            idf,
+            "AirflowNetwork:MultiZone:Zone",
+            Zone_Name=aark.ep.obj.get_other_zone(door_obj).Name,
+        )
+
+    for door_name in ambient_door_names:
+        door_obj = aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", door_name)
+
+        aark.ep.obj.add(
+            idf,
+            "AirflowNetwork:MultiZone:Zone",
+            Zone_Name=aark.ep.obj.get_zone(door_obj).Name,
+        )
+
+
+def _add_afn_surfaces(
+    idf: IDF,
+    allocated_surface_names: Sequence[str],
+    internal_door_names: Sequence[str],
+    ambient_door_names: Sequence[str],
+) -> None:
+    """Add the AirflowNetwork surface linkages."""
+    for surface_name in allocated_surface_names:
+        surface_obj = aark.ep.obj.get_named(
+            idf, "BuildingSurface:Detailed", surface_name
+        )
+        external_node_uid = (
+            _uid("external_node", surface_obj.Name)
+            if aark.ep.field.equal(
+                "Outdoors", surface_obj, "Outside_Boundary_Condition"
+            )
+            else ""
+        )
+
+        aark.ep.obj.add(
+            idf,
+            "AirflowNetwork:MultiZone:Surface",
+            Surface_Name=surface_name,
+            Leakage_Component_Name=_uid("crack", surface_name),
+            External_Node_Name=external_node_uid,
+            WindowDoor_Opening_Factor_or_Crack_Factor="1",
+        )
+
+    for door_name in internal_door_names:
+        aark.ep.obj.add(
+            idf,
+            "AirflowNetwork:MultiZone:Surface",
+            Surface_Name=door_name,
+            Leakage_Component_Name=_uid("internal_door_opening"),
+            WindowDoor_Opening_Factor_or_Crack_Factor="1",
+            Ventilation_Control_Mode="NoVent",
+        )
+
+    for door_name in ambient_door_names:
+        door_obj = aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", door_name)
+        parent_surface_obj = aark.ep.obj.get_parent(door_obj)
+
+        aark.ep.obj.add(
+            idf,
+            "AirflowNetwork:MultiZone:Surface",
+            Surface_Name=door_name,
+            Leakage_Component_Name=_uid("ambient_door_opening"),
+            External_Node_Name=_uid("external_node", parent_surface_obj.Name),
+            WindowDoor_Opening_Factor_or_Crack_Factor="1",
+            Ventilation_Control_Mode="NoVent",
+        )
+
+
+def _add_afn_ref_crack_condition(idf: IDF) -> None:
+    """Add the reference conditions used by every fabric crack."""
+    aark.ep.obj.add(
+        idf,
+        "AirflowNetwork:MultiZone:ReferenceCrackConditions",
+        Name=_uid("ref_crack_condition"),
+        Reference_Temperature=str(_REF_TEMPERATURE),
+        Reference_Barometric_Pressure=str(_REF_PRESSURE),
+        Reference_Humidity_Ratio=str(_REF_HUMIDITY_RATIO),
+    )
+
+
+def _add_afn_cracks(
+    idf: IDF, surface_name2allocation: Mapping[str, tuple[float, float]]
+) -> None:
+    """Add one test-derived crack component per represented fabric surface."""
+    for surface_name, (leakage, exponent) in surface_name2allocation.items():
+        coeff = _REF_AIR_DENSITY * leakage / (3600 * 50**exponent)
+
+        aark.ep.obj.add(
+            idf,
+            "AirflowNetwork:MultiZone:Surface:Crack",
+            Name=_uid("crack", surface_name),
+            Air_Mass_Flow_Coefficient_at_Reference_Conditions=str(coeff),
+            Air_Mass_Flow_Exponent=str(exponent),
+            Reference_Crack_Conditions=_uid("ref_crack_condition"),
+        )
+
+
+def _add_afn_opening(
+    idf: IDF,
+    internal_door_names: Sequence[str],
+    ambient_door_names: Sequence[str],
+    door_airflow_params: Mapping[str, str],
+) -> None:
+    """Add the shared closed-door detailed-opening components."""
+    shared_obj_fields = {
+        "Type_of_Rectangular_Large_Vertical_Opening_LVO": "NonPivoted",
+        "Extra_Crack_Length_or_Height_of_Pivoting_Axis": "0",
+        "Number_of_Sets_of_Opening_Factor_Data": "2",
+        "Opening_Factor_1": "0",
+        "Discharge_Coefficient_for_Opening_Factor_1": door_airflow_params[
+            "closed_discharge_coeff"
+        ],
+        "Width_Factor_for_Opening_Factor_1": "0",
+        "Height_Factor_for_Opening_Factor_1": "0",
+        "Start_Height_Factor_for_Opening_Factor_1": "0",
+        "Opening_Factor_2": "1",
+        "Discharge_Coefficient_for_Opening_Factor_2": door_airflow_params[
+            "open_discharge_coeff"
+        ],
+        "Width_Factor_for_Opening_Factor_2": "1",
+        "Height_Factor_for_Opening_Factor_2": "1",
+        "Start_Height_Factor_for_Opening_Factor_2": "0",
+    }
+
+    if internal_door_names:
+        aark.ep.obj.add(
+            idf,
+            "AirflowNetwork:MultiZone:Component:DetailedOpening",
+            Name=_uid("internal_door_opening"),
+            Air_Mass_Flow_Coefficient_When_Opening_is_Closed=door_airflow_params[
+                "internal_closed_mass_flow_coeff"
+            ],
+            Air_Mass_Flow_Exponent_When_Opening_is_Closed=door_airflow_params[
+                "internal_closed_mass_flow_exponent"
+            ],
+            **shared_obj_fields,
+        )
+
+    if ambient_door_names:
+        aark.ep.obj.add(
+            idf,
+            "AirflowNetwork:MultiZone:Component:DetailedOpening",
+            Name=_uid("ambient_door_opening"),
+            Air_Mass_Flow_Coefficient_When_Opening_is_Closed=door_airflow_params[
+                "ambient_closed_mass_flow_coeff"
+            ],
+            Air_Mass_Flow_Exponent_When_Opening_is_Closed=door_airflow_params[
+                "ambient_closed_mass_flow_exponent"
+            ],
+            **shared_obj_fields,
+        )
+
+
+def _add_afn_external_nodes(
+    idf: IDF,
+    wind_pressure_coeff_records: Sequence[AirflowRecord],
+    allocated_surface_names: Sequence[str],
+    ambient_door_names: Sequence[str],
+) -> None:
+    """Add one external node for each represented outdoor surface."""
+    afn_external_surface_names = set()
+
+    for surface_name in allocated_surface_names:
+        surface_obj = aark.ep.obj.get_named(
+            idf, "BuildingSurface:Detailed", surface_name
+        )
+        if aark.ep.field.equal("Outdoors", surface_obj, "Outside_Boundary_Condition"):
+            afn_external_surface_names.add(surface_obj.Name)
+
+    for door_name in ambient_door_names:
+        door_obj = aark.ep.obj.get_named(idf, "FenestrationSurface:Detailed", door_name)
+        afn_external_surface_names.add(aark.ep.obj.get_parent(door_obj).Name)
+
+    for wind_pressure_coeff_record in wind_pressure_coeff_records:
+        record_name = str(wind_pressure_coeff_record["name"])
+        ref_height = float(str(wind_pressure_coeff_record["ref_height"]))
+        external_surface_names = wind_pressure_coeff_record["external_surfaces"]
+
+        for surface_name in external_surface_names:
+            if surface_name not in afn_external_surface_names:
+                continue
+
+            aark.ep.obj.add(
+                idf,
+                "AirflowNetwork:MultiZone:ExternalNode",
+                Name=_uid("external_node", surface_name),
+                External_Node_Height=str(ref_height),
+                Wind_Pressure_Coefficient_Curve_Name=record_name,
+                Symmetric_Wind_Pressure_Coefficient_Curve="Yes",
+                Wind_Angle_Type="Relative",
+            )
+
+
+def _add_afn_wind_pressure_coeffs(
+    idf: IDF, wind_pressure_coeff_records: Sequence[AirflowRecord]
+) -> None:
+    """Add the wind-angle array and grouped wind pressure coefficient records."""
+    angles_obj_name = _uid("wind_pressure_coeff_angles")
+
+    angles = wind_pressure_coeff_records[0]["angles"]
+    obj_fields = {
+        f"Wind_Direction_{i}": angle for i, angle in enumerate(angles, start=1)
+    }
+    aark.ep.obj.add(
+        idf,
+        "AirflowNetwork:MultiZone:WindPressureCoefficientArray",
+        Name=angles_obj_name,
+        **obj_fields,
+    )
+
+    for wind_pressure_coeff_record in wind_pressure_coeff_records:
+        record_name = str(wind_pressure_coeff_record["name"])
+        coeffs = wind_pressure_coeff_record["coeffs"]
+
+        obj_fields = {
+            f"Wind_Pressure_Coefficient_Value_{i}": val
+            for i, val in enumerate(coeffs, start=1)
+        }
+        aark.ep.obj.add(
+            idf,
+            "AirflowNetwork:MultiZone:WindPressureCoefficientValues",
+            Name=record_name,
+            AirflowNetworkMultiZoneWindPressureCoefficientArray_Name=angles_obj_name,
+            **obj_fields,
+        )
+
+
 def apply(
     idf: IDF,
     air_leakage_records: Sequence[AirflowRecord],
     wind_pressure_coeff_records: Sequence[AirflowRecord],
+    door_airflow_params: Mapping[str, str],
 ) -> None:
     """Apply the tested air leakage to the IDF.
 
@@ -440,6 +748,20 @@ def apply(
         },
     ]
     ```
+
+    `door_airflow_params` contains the door-opening parameters. The ambient keys are
+    required only when an `air_leakage_record` supplies `ambient_doors`.
+
+    ```python
+    door_airflow_params = {
+        "internal_closed_mass_flow_coeff": "0.002",  # kg s-1 m-1 @ 1 Pa
+        "internal_closed_mass_flow_exponent": "0.6",
+        "closed_discharge_coeff": "1e-7",
+        "open_discharge_coeff": "0.69",
+        "ambient_closed_mass_flow_coeff": "3.25e-4",  # kg s-1 m-1 @ 1 Pa
+        "ambient_closed_mass_flow_exponent": "0.6",
+    }
+    ```
     """
     # validate aark requirements
     aark.ep._pact.validate_ep_ver(idf)
@@ -448,12 +770,43 @@ def apply(
 
     # validate user inputs
     _validate_air_leakage_records(air_leakage_records, idf)
+
+    all_internal_door_names = _get_all_vals_by_record_key(
+        air_leakage_records, "internal_doors"
+    )
+    all_ambient_door_names = _get_all_vals_by_record_key(
+        air_leakage_records, "ambient_doors"
+    )
+
     _validate_wind_pressure_coeff_records(
         wind_pressure_coeff_records, idf, air_leakage_records
     )
+    _validate_door_airflow_params(door_airflow_params, all_ambient_door_names)
 
     # allocate leakage parameters
     surface_name2allocation = _allocate_air_leakage(air_leakage_records, idf)
+    allocated_surface_names = tuple(surface_name2allocation)
+
+    # add afn objects
+    _add_afn_simulation_control(idf)
+    _add_afn_zones(
+        idf, allocated_surface_names, all_internal_door_names, all_ambient_door_names
+    )
+    _add_afn_surfaces(
+        idf, allocated_surface_names, all_internal_door_names, all_ambient_door_names
+    )
+    _add_afn_ref_crack_condition(idf)
+    _add_afn_cracks(idf, surface_name2allocation)
+    _add_afn_opening(
+        idf, all_internal_door_names, all_ambient_door_names, door_airflow_params
+    )
+    _add_afn_external_nodes(
+        idf,
+        wind_pressure_coeff_records,
+        allocated_surface_names,
+        all_ambient_door_names,
+    )
+    _add_afn_wind_pressure_coeffs(idf, wind_pressure_coeff_records)
 
 
 # -----------------------------------------------------------------------------
@@ -886,3 +1239,34 @@ def _validate_wind_pressure_coeff_records(
         raise ValueError(
             f"Missing wind pressure coefficients for outdoor surfaces: {missing_surface_names}."
         )
+
+
+def _validate_door_airflow_params(
+    door_airflow_params: Mapping[str, str], ambient_door_names: Sequence[str]
+) -> None:
+    """Validate door airflow parameter keys for the supplied door types."""
+    required_keys = {
+        "internal_closed_mass_flow_coeff",
+        "internal_closed_mass_flow_exponent",
+        "closed_discharge_coeff",
+        "open_discharge_coeff",
+    }
+    optional_keys = {
+        "ambient_closed_mass_flow_coeff",
+        "ambient_closed_mass_flow_exponent",
+    }
+    valid_keys = required_keys | optional_keys
+
+    # the mapping must contain all required keys and only allowed keys
+    if not required_keys <= set(door_airflow_params) <= valid_keys:
+        raise ValueError(
+            f"Invalid door airflow parameter keys: {door_airflow_params.keys()}."
+        )
+
+    # ambient values must be supplied when ambient doors are supplied
+    if ambient_door_names:
+        missing_ambient_keys = optional_keys - door_airflow_params.keys()
+        if missing_ambient_keys:
+            raise ValueError(
+                f"Missing ambient door airflow parameter keys: {missing_ambient_keys}."
+            )
