@@ -5,12 +5,16 @@ import math
 import warnings
 from typing import TYPE_CHECKING
 
-from CoolProp.CoolProp import PropsSI
-
 import aark._utils
 import aark.ep._pact
 import aark.ep.field
 import aark.ep.obj
+from aark.ep.afn import (
+    REF_AIR_DENSITY,
+    REF_HUMIDITY_RATIO,
+    REF_PRESSURE,
+    REF_TEMPERATURE,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -21,13 +25,6 @@ if TYPE_CHECKING:
 
 
 _SHARED_AIR_PERMEABILITY_REL_TOLERANCE = 0.3
-
-_REF_TEMPERATURE = 20  # °C
-_REF_PRESSURE = 101325  # Pa
-_REF_HUMIDITY_RATIO = 0  # kg water kg-1 dry air
-_REF_AIR_DENSITY = float(  # float is not needed in coolprop 8 with typing
-    PropsSI("Dmass", "T", _REF_TEMPERATURE + 273.15, "P", _REF_PRESSURE, "Air")
-)  # kg m-3  # assumes _REF_HUMIDITY_RATIO == 0
 
 
 def prefix(s: str) -> str:
@@ -507,9 +504,9 @@ def _add_afn_ref_crack_condition(idf: IDF) -> None:
         idf,
         "AirflowNetwork:MultiZone:ReferenceCrackConditions",
         Name=_uid("ref_crack_condition"),
-        Reference_Temperature=str(_REF_TEMPERATURE),
-        Reference_Barometric_Pressure=str(_REF_PRESSURE),
-        Reference_Humidity_Ratio=str(_REF_HUMIDITY_RATIO),
+        Reference_Temperature=str(REF_TEMPERATURE),
+        Reference_Barometric_Pressure=str(REF_PRESSURE),
+        Reference_Humidity_Ratio=str(REF_HUMIDITY_RATIO),
     )
 
 
@@ -518,7 +515,7 @@ def _add_afn_cracks(
 ) -> None:
     """Add one test-derived crack component per represented fabric surface."""
     for surface_name, (leakage, exponent) in surface_name2allocation.items():
-        coeff = _REF_AIR_DENSITY * leakage / (3600 * 50**exponent)
+        coeff = REF_AIR_DENSITY * leakage / (3600 * 50**exponent)
 
         aark.ep.obj.add(
             idf,
