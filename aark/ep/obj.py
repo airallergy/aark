@@ -116,9 +116,6 @@ def rstrip(obj: EpBunch) -> None:
         val.strip() if isinstance(val, str) else val for val in obj.fieldvalues
     ]  # `obj.fieldvalues` cannot be reassigned directly
 
-    if all(val == "" for val in obj.fieldvalues[1:]):
-        raise ValueError(f"Object is empty: {obj}.")
-
     # remove trailing empty fields
     while obj.fieldvalues[-1] == "":
         obj.fieldvalues.pop()
