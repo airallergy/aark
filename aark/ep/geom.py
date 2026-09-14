@@ -119,6 +119,13 @@ def set_vertices(obj: EpBunch, vertices: FloatArr2D) -> None:
     obj.Number_of_Vertices = ""
 
 
+def round_vertices(obj: EpBunch) -> None:
+    """Round vertices of a detailed geometry object to seven decimal places."""
+    vertices = get_vertices(obj)
+    vertices = np.round(vertices, 7)
+    set_vertices(obj, vertices)
+
+
 def set_world_geom_rule(idf: IDF) -> None:
     """Set the coordinate system to `World`."""
     (obj,) = idf.idfobjects["GlobalGeometryRules"]

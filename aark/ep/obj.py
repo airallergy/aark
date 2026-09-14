@@ -121,6 +121,11 @@ def rstrip(obj: EpBunch) -> None:
         obj.fieldvalues.pop()
 
 
+def iddify_cls_name(obj: EpBunch) -> None:
+    """Set an object's class name to IDD casing."""
+    obj.key = obj.getfieldidd("key")["idfobj"]
+
+
 # -----------------------------------------------------------------------------
 # Validation
 # -----------------------------------------------------------------------------
