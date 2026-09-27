@@ -15,8 +15,6 @@ from aark.tm59.data import (
     AWAKE_START_HOUR,
     HABITABLE_ROOM_TYPES,
     INTERNAL_GAIN_PROFILES,
-    SLEEP_ROOM_TYPES,
-    STUDIO_TYPE,
     WINDOW_OPENING_THRESHOLD,
 )
 
@@ -30,21 +28,37 @@ if TYPE_CHECKING:
     from aark.tm59._utils import RoomMap
 
 
-def _get_avail_hourly_factors(room_type: str) -> tuple[str, ...]:
-    """Get availability hourly factors by room type."""
-    if room_type in SLEEP_ROOM_TYPES:
-        return tuple(
-            "1" if AWAKE_START_HOUR <= hour < AWAKE_END_HOUR else "0"
-            for hour in range(24)
+def _get_window_avail_hourly_factors(
+    room_type: str, asleep_closed: bool
+) -> tuple[str, ...]:
+    """Get hourly window availability factors.
+
+    When `asleep_closed` is `True`, available sleeping hours become unavailable.
+    This affects bedrooms and studios; other rooms are already unavailable
+    during sleeping hours under their occupancy profiles.
+    """
+    occupancy_hourly_factors = INTERNAL_GAIN_PROFILES.get_hourly_factors(
+        "occupancy", room_type
+    )
+    hourly_factors = tuple(
+        "0" if factor == "0" else "1" for factor in occupancy_hourly_factors
+    )
+
+    if asleep_closed:
+        hourly_factors = tuple(
+            factor if AWAKE_START_HOUR <= hour < AWAKE_END_HOUR else "0"
+            for hour, factor in enumerate(hourly_factors)
         )
 
-    else:
-        occupancy_hourly_factors = INTERNAL_GAIN_PROFILES.get_hourly_factors(
-            "occupancy", room_type
-        )
-        return tuple(
-            "0" if factor == "0" else "1" for factor in occupancy_hourly_factors
-        )
+    return hourly_factors
+
+
+def _get_door_avail_hourly_factors() -> tuple[str, ...]:
+    """Get hourly internal door availability factors."""
+    return tuple(
+        "1" if AWAKE_START_HOUR <= hour < AWAKE_END_HOUR else "0"
+        for hour in range(24)
+    )
 
 
 def _add_program_to_calling_manager(idf: IDF, program_obj_name: str) -> None:
@@ -87,19 +101,26 @@ def _add_window(
     room_type: str,
     start_month_day: MonthDay,
     end_month_day: MonthDay,
+    asleep_closed: bool,
 ) -> None:
     """Add control for the window."""
     window_name = afn_surface_obj.Surface_Name
-    max_vent_factor = aark.ep.field.with_default(
-        afn_surface_obj.WindowDoor_Opening_Factor_or_Crack_Factor,
-        afn_surface_obj,
-        "WindowDoor_Opening_Factor_or_Crack_Factor",
-    )
     avail_sched_obj_name = aark.tm59._utils.prefix(f"window_avail_{room_type}")
     avail_sensor_obj_name = aark.tm59._utils.erl_uid("window_avail", room_type)
     Ta_sensor_obj_name = aark.tm59._utils.erl_uid("Ta", zone_name)
     actuator_obj_name = aark.tm59._utils.erl_uid("vent_factor", window_name)
     program_obj_name = aark.tm59._utils.erl_uid("vent", window_name)
+
+    if asleep_closed:
+        avail_sched_obj_name += "_asleep_closed"
+        avail_sensor_obj_name += "_asleep_closed"
+
+    # compose program lines
+    max_vent_factor = aark.ep.field.with_default(
+        afn_surface_obj.WindowDoor_Opening_Factor_or_Crack_Factor,
+        afn_surface_obj,
+        "WindowDoor_Opening_Factor_or_Crack_Factor",
+    )
     program_lines = (
         f"IF {avail_sensor_obj_name} > 0",
         f"IF {Ta_sensor_obj_name} > {WINDOW_OPENING_THRESHOLD}",
@@ -119,7 +140,7 @@ def _add_window(
             )
 
     # add the availability schedule
-    avail_hourly_factors = _get_avail_hourly_factors(room_type)
+    avail_hourly_factors = _get_window_avail_hourly_factors(room_type, asleep_closed)
     avail_sched_blocks = aark.ep.sched.make_compact_blocks(
         avail_hourly_factors, start_month_day, end_month_day
     )
@@ -172,7 +193,11 @@ def _add_window(
 
 
 def _apply_external_windows(
-    idf: IDF, window_map: RoomMap, start_month_day: MonthDay, end_month_day: MonthDay
+    idf: IDF,
+    window_map: RoomMap,
+    start_month_day: MonthDay,
+    end_month_day: MonthDay,
+    asleep_closed_windows: Sequence[str],
 ) -> None:
     """Apply the external window openings.
 
@@ -195,6 +220,7 @@ def _apply_external_windows(
                 room_type,
                 start_month_day,
                 end_month_day,
+                window_name in asleep_closed_windows,
             )
 
 
@@ -209,7 +235,7 @@ def _apply_internal_doors(
     Internal doors refer to intra-dwelling doors.
     """
     # add the availability schedule
-    avail_hourly_factors = _get_avail_hourly_factors(STUDIO_TYPE)
+    avail_hourly_factors = _get_door_avail_hourly_factors()
     sched_obj_name = aark.tm59._utils.prefix("internal_door_avail")
     sched_blocks = aark.ep.sched.make_compact_blocks(
         avail_hourly_factors, start_month_day, end_month_day
@@ -230,6 +256,7 @@ def apply(
     doors: Sequence[str],
     start_month_day: MonthDay = YEAR_START_MONTH_DAY,
     end_month_day: MonthDay = YEAR_END_MONTH_DAY,
+    asleep_closed_windows: Sequence[str] = (),
 ) -> None:
     """Apply the window and door openings to the IDF.
 
@@ -261,6 +288,12 @@ def apply(
     }
     ```
 
+    TM59 models windows as open when the room is occupied and its internal dry
+    bulb temperature exceeds 22 °C, subject to opening restrictions. By default,
+    this applies throughout occupied hours, including overnight. Supply window
+    names from `window_map` in `asleep_closed_windows` to keep them closed from
+    23:00 to 08:00.
+
     Another key user input is `doors` with the conceptual type:
 
     ```python
@@ -283,8 +316,11 @@ def apply(
     # validate user inputs
     _validate_window_map(idf, window_map)
     _validate_doors(idf, doors)
+    _validate_asleep_closed_windows(window_map, asleep_closed_windows)
 
-    _apply_external_windows(idf, window_map, start_month_day, end_month_day)
+    _apply_external_windows(
+        idf, window_map, start_month_day, end_month_day, asleep_closed_windows
+    )
     _apply_internal_doors(idf, doors, start_month_day, end_month_day)
 
 
@@ -389,3 +425,16 @@ def _validate_doors(idf: IDF, door_names: Sequence[str]) -> None:
 
         # each door must have afn surface and opening component objects
         _validate_afn_opening(idf, door_name)
+
+
+def _validate_asleep_closed_windows(
+    window_map: RoomMap, asleep_closed_windows: Sequence[str]
+) -> None:
+    """Validate that windows closed during sleeping hours are in the window map."""
+    window_names = {name for names in window_map.values() for name in names}
+    unmapped_windows = set(asleep_closed_windows) - window_names
+
+    if unmapped_windows:
+        raise ValueError(
+            f"Unknown windows for closure during sleeping hours: {unmapped_windows}."
+        )
