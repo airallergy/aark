@@ -53,12 +53,16 @@ def _get_window_avail_hourly_factors(
     return hourly_factors
 
 
-def _get_door_avail_hourly_factors() -> tuple[str, ...]:
+def _get_door_avail_hourly_factors(awake_closed: bool) -> tuple[str, ...]:
     """Get hourly internal door availability factors."""
-    return tuple(
-        "1" if AWAKE_START_HOUR <= hour < AWAKE_END_HOUR else "0"
-        for hour in range(24)
+    hourly_factors = tuple(
+        "1" if AWAKE_START_HOUR <= hour < AWAKE_END_HOUR else "0" for hour in range(24)
     )
+
+    if awake_closed:
+        hourly_factors = ("0",) * 24
+
+    return hourly_factors
 
 
 def _add_program_to_calling_manager(idf: IDF, program_obj_name: str) -> None:
@@ -192,6 +196,31 @@ def _add_window(
     _add_program_to_calling_manager(idf, program_obj_name)
 
 
+def _add_door(
+    idf: IDF,
+    afn_surface_obj: EpBunch,
+    start_month_day: MonthDay,
+    end_month_day: MonthDay,
+    awake_closed: bool,
+) -> None:
+    """Add control for the door."""
+    sched_obj_name = aark.tm59._utils.prefix("internal_door_avail")
+
+    if awake_closed:
+        sched_obj_name += "_awake_closed"
+
+    # add the availability schedule
+    avail_hourly_factors = _get_door_avail_hourly_factors(awake_closed)
+    sched_blocks = aark.ep.sched.make_compact_blocks(
+        avail_hourly_factors, start_month_day, end_month_day
+    )
+    aark.ep.sched.add_compact_obj(idf, sched_obj_name, "On/Off", *sched_blocks)
+
+    # modify the afn surface object
+    afn_surface_obj.Ventilation_Control_Mode = "Constant"
+    afn_surface_obj.Venting_Availability_Schedule_Name = sched_obj_name
+
+
 def _apply_external_windows(
     idf: IDF,
     window_map: RoomMap,
@@ -229,25 +258,22 @@ def _apply_internal_doors(
     door_names: Sequence[str],
     start_month_day: MonthDay,
     end_month_day: MonthDay,
+    awake_closed_doors: Sequence[str],
 ) -> None:
     """Apply the internal door openings.
 
     Internal doors refer to intra-dwelling doors.
     """
-    # add the availability schedule
-    avail_hourly_factors = _get_door_avail_hourly_factors()
-    sched_obj_name = aark.tm59._utils.prefix("internal_door_avail")
-    sched_blocks = aark.ep.sched.make_compact_blocks(
-        avail_hourly_factors, start_month_day, end_month_day
-    )
-    aark.ep.sched.add_compact_obj(idf, sched_obj_name, "On/Off", *sched_blocks)
-
     for door_name in door_names:
         afn_surface_obj = aark.ep.afn.get_surface_obj(idf, door_name)
 
-        # modify the afn surface object
-        afn_surface_obj.Ventilation_Control_Mode = "Constant"
-        afn_surface_obj.Venting_Availability_Schedule_Name = sched_obj_name
+        _add_door(
+            idf,
+            afn_surface_obj,
+            start_month_day,
+            end_month_day,
+            door_name in awake_closed_doors,
+        )
 
 
 def apply(
@@ -257,6 +283,7 @@ def apply(
     start_month_day: MonthDay = YEAR_START_MONTH_DAY,
     end_month_day: MonthDay = YEAR_END_MONTH_DAY,
     asleep_closed_windows: Sequence[str] = (),
+    awake_closed_doors: Sequence[str] = (),
 ) -> None:
     """Apply the window and door openings to the IDF.
 
@@ -308,6 +335,11 @@ def apply(
         "flat_2_bedroom-kitchen_door",
     ]
     ```
+
+    TM59 allows internal doors to remain open during the day but requires closure
+    when occupants are sleeping. By default, listed doors are open from 08:00 to 23:00
+    and closed otherwise. Supply door names from `doors` in `awake_closed_doors` to
+    keep them closed throughout.
     """
     # validate aark requirements
     aark.ep._pact.validate_ep_ver(idf)
@@ -317,11 +349,14 @@ def apply(
     _validate_window_map(idf, window_map)
     _validate_doors(idf, doors)
     _validate_asleep_closed_windows(window_map, asleep_closed_windows)
+    _validate_awake_closed_doors(doors, awake_closed_doors)
 
     _apply_external_windows(
         idf, window_map, start_month_day, end_month_day, asleep_closed_windows
     )
-    _apply_internal_doors(idf, doors, start_month_day, end_month_day)
+    _apply_internal_doors(
+        idf, doors, start_month_day, end_month_day, awake_closed_doors
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -409,7 +444,7 @@ def _validate_window_map(idf: IDF, window_map: RoomMap) -> None:
 
 
 def _validate_doors(idf: IDF, door_names: Sequence[str]) -> None:
-    """Validate a sequence of doors for applying internal door opening."""
+    """Validate one sequence of doors."""
     # the door sequence must not be empty
     if not door_names:
         raise ValueError(f"Empty doors: {door_names}.")
@@ -437,4 +472,16 @@ def _validate_asleep_closed_windows(
     if unmapped_windows:
         raise ValueError(
             f"Unknown windows for closure during sleeping hours: {unmapped_windows}."
+        )
+
+
+def _validate_awake_closed_doors(
+    doors: Sequence[str], awake_closed_doors: Sequence[str]
+) -> None:
+    """Validate that doors closed during non-sleeping hours are in the door sequence."""
+    unlisted_doors = set(awake_closed_doors) - set(doors)
+
+    if unlisted_doors:
+        raise ValueError(
+            f"Unknown doors for closure during non-sleeping hours: {unlisted_doors}."
         )
