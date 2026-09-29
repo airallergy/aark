@@ -124,7 +124,7 @@ def assess_criterion_1(
 
     return {
         "n_exceeded_hours": n_exceeded_hours,
-        "n_occupied_hours": n_occupied_hours,
+        "n_assessed_hours": n_occupied_hours,
         "threshold": CRITERION_1_THRESHOLD,
         "passed": passed,
     }

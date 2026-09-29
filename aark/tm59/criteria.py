@@ -160,19 +160,12 @@ def assess_criterion_b(
     )
 
     daily_asleep = ~_get_daily_awake_mask(n_hourly_timesteps)
-    result = _calc_fixed_temperature_exceedance(
+    return _calc_fixed_temperature_exceedance(
         Top[:, daily_asleep].ravel(),
         GUIDE_A_TEMPERATURE_THRESHOLD,
         CRITERION_B_THRESHOLD,
         n_hourly_timesteps,
     )
-
-    return {
-        "n_exceeded_hours": result["n_exceeded_hours"],
-        "n_sleeping_hours": result["n_assessed_hours"],
-        "threshold": result["threshold"],
-        "passed": result["passed"],
-    }
 
 
 def assess_mechanical_vent(
@@ -200,19 +193,12 @@ def assess_mechanical_vent(
     if not occupied.any():
         raise ValueError(f"Zero occupancy: {occupancy}.")
 
-    result = _calc_fixed_temperature_exceedance(
+    return _calc_fixed_temperature_exceedance(
         Top[occupied],
         GUIDE_A_TEMPERATURE_THRESHOLD,
         MECHANICAL_VENT_THRESHOLD,
         n_hourly_timesteps,
     )
-
-    return {
-        "n_exceeded_hours": result["n_exceeded_hours"],
-        "n_occupied_hours": result["n_assessed_hours"],
-        "threshold": result["threshold"],
-        "passed": result["passed"],
-    }
 
 
 def assess_communal_corridor(
