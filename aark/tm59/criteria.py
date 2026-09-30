@@ -92,13 +92,13 @@ def _calc_fixed_temperature_exceedance(
     n_assessed_timesteps = assessed_temperatures.size
     n_assessed_hours = n_assessed_timesteps / n_hourly_timesteps
 
-    passed = n_exceeded_timesteps * 100 <= criterion_threshold * n_assessed_timesteps
+    met = n_exceeded_timesteps * 100 <= criterion_threshold * n_assessed_timesteps
 
     return {
         "n_exceeded_hours": n_exceeded_hours,
         "n_assessed_hours": n_assessed_hours,
         "threshold": criterion_threshold,
-        "passed": passed,
+        "met": met,
     }
 
 

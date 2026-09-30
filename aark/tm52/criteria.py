@@ -118,7 +118,7 @@ def assess_criterion_1(
     n_occupied_timesteps = int(occupied.sum())
     n_occupied_hours = n_occupied_timesteps / n_hourly_timesteps
 
-    passed = bool(
+    met = bool(
         n_exceeded_timesteps * 100 <= CRITERION_1_THRESHOLD * n_occupied_timesteps
     )
 
@@ -126,7 +126,7 @@ def assess_criterion_1(
         "n_exceeded_hours": n_exceeded_hours,
         "n_assessed_hours": n_occupied_hours,
         "threshold": CRITERION_1_THRESHOLD,
-        "passed": passed,
+        "met": met,
     }
 
 
@@ -160,12 +160,12 @@ def assess_criterion_2(
     )
 
     # calculate other return values
-    passed = bool(max_daily_degree_hours <= CRITERION_2_THRESHOLD)
+    met = bool(max_daily_degree_hours <= CRITERION_2_THRESHOLD)
 
     return {
         "max_daily_degree_hours": max_daily_degree_hours,
         "threshold": CRITERION_2_THRESHOLD,
-        "passed": passed,
+        "met": met,
     }
 
 
@@ -196,12 +196,12 @@ def assess_criterion_3(
     max_exceedance = int(dT[occupied].max())
 
     # calculate other return values
-    passed = bool(max_exceedance <= CRITERION_3_THRESHOLD)
+    met = bool(max_exceedance <= CRITERION_3_THRESHOLD)
 
     return {
         "max_exceedance": max_exceedance,
         "threshold": CRITERION_3_THRESHOLD,
-        "passed": passed,
+        "met": met,
     }
 
 
