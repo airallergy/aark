@@ -17,6 +17,4 @@ TM59:
 - The lighting gain is applied to all rooms by floor area, including non-habitable rooms
   with neither people nor equipment gain, such as bathrooms and halls.
 - Available windows are fully open above 22 °C and fully closed otherwise.
-- The sleeping period is 23:00 - 08:00 in line with the internal gain profiles; the
-  22:00 - 07:00 period in criterion (b) is treated as a typo.
 """

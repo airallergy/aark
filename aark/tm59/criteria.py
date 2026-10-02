@@ -24,6 +24,8 @@ if TYPE_CHECKING:
     from aark.arr import BoolArr1D, FloatArr1D, FloatArr2D
 
 
+CRITERION_B_START_HOUR = 22
+CRITERION_B_END_HOUR = 7
 GUIDE_A_TEMPERATURE_THRESHOLD = 26  # °C
 COMMUNAL_CORRIDOR_TEMPERATURE_THRESHOLD = 28  # °C
 CRITERION_B_THRESHOLD = 1  # %
@@ -68,14 +70,19 @@ def _parsed_non_adaptive_criterion_args(
     return Top
 
 
-def _get_daily_awake_mask(n_hourly_timesteps: int) -> BoolArr1D:
-    """Return the daily awake mask."""
+def _get_daily_timestep_mask(
+    n_hourly_timesteps: int, start_hour: int, end_hour: int
+) -> BoolArr1D:
+    """Return a daily timestep mask including `start_hour` and excluding `end_hour`.
+
+    `start_hour` must be less than `end_hour`.
+    """
     aark._utils.validate_n_timesteps(n_hourly_timesteps)
 
     hour_idxs = np.arange(24, dtype=int)
-    hourly_mask = (hour_idxs >= AWAKE_START_HOUR) & (hour_idxs < AWAKE_END_HOUR)
-    timestep_mask = np.repeat(hourly_mask[:, None], n_hourly_timesteps, axis=1)
-    return timestep_mask.ravel()
+    hourly_mask = (hour_idxs >= start_hour) & (hour_idxs < end_hour)
+
+    return np.repeat(hourly_mask, n_hourly_timesteps)
 
 
 def _calc_fixed_temperature_exceedance(
@@ -124,7 +131,9 @@ def assess_criterion_a(
     _validate_category_not_3(category)
 
     if awake_only:
-        daily_awake = _get_daily_awake_mask(n_hourly_timesteps)
+        daily_awake = _get_daily_timestep_mask(
+            n_hourly_timesteps, AWAKE_START_HOUR, AWAKE_END_HOUR
+        )
 
         occupancy_1d = aark.arr.as_1d(occupancy_1d)
         aark.arr.validate_full_days(occupancy_1d, n_hourly_timesteps)
@@ -153,15 +162,17 @@ def assess_criterion_b(
 ) -> dict[str, object]:
     """Assess TM59 criterion b.
 
-    Sleeping hours exceeding 26 °C, from Guide A.
+    Hours from 22:00 to 07:00 exceeding 26 °C, from Guide A.
     """
     Top = _parsed_non_adaptive_criterion_args(
         Top_1d, start_month_day, end_month_day, n_hourly_timesteps, is_leap
     )
 
-    daily_asleep = ~_get_daily_awake_mask(n_hourly_timesteps)
+    daily_assessed = ~_get_daily_timestep_mask(
+        n_hourly_timesteps, CRITERION_B_END_HOUR, CRITERION_B_START_HOUR
+    )
     return _calc_fixed_temperature_exceedance(
-        Top[:, daily_asleep].ravel(),
+        Top[:, daily_assessed].ravel(),
         GUIDE_A_TEMPERATURE_THRESHOLD,
         CRITERION_B_THRESHOLD,
         n_hourly_timesteps,
