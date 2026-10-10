@@ -5,7 +5,7 @@ import math
 import warnings
 from typing import TYPE_CHECKING
 
-import aark._utils
+import aark.attma._utils
 import aark.ep._pact
 import aark.ep.field
 import aark.ep.obj
@@ -26,29 +26,6 @@ if TYPE_CHECKING:
 
 
 _SHARED_AIR_PERMEABILITY_REL_TOLERANCE = 0.3
-
-
-def prefix(s: str) -> str:
-    """Prepend the ATTMA TSL1 namespace to a string."""
-    p = aark._utils.prefix("attma_tsl1_")
-
-    if not s:
-        raise ValueError(f"Empty string: {s}.")
-
-    if s.upper().startswith(p.upper()):
-        raise ValueError(f"Prefix already exists: {s}.")
-
-    return f"{p}{s}"
-
-
-def _uid(*args: str) -> str:
-    """Build a standard `aark`-generated UID."""
-    args = tuple(arg for arg in args if arg)
-
-    if not args:
-        raise ValueError(f"Empty UID arguments: {args}.")
-
-    return prefix("_".join(args))
 
 
 def _get_all_vals_by_record_key(
@@ -389,7 +366,7 @@ def _add_afn_simulation_control(idf: IDF) -> None:
     aark.ep.obj.add(
         idf,
         "AirflowNetwork:SimulationControl",
-        Name=_uid("simulation_control"),
+        Name=aark.attma._utils.uid("simulation_control"),
         AirflowNetwork_Control="MultizoneWithoutDistribution",
         Wind_Pressure_Coefficient_Type="Input",
         Height_Selection_for_Local_Wind_Pressure_Calculation="ExternalNode",
@@ -458,7 +435,7 @@ def _add_afn_surfaces(
             idf, "BuildingSurface:Detailed", surface_name
         )
         external_node_uid = (
-            _uid("external_node", surface_obj.Name)
+            aark.attma._utils.uid("external_node", surface_obj.Name)
             if aark.ep.field.equal(
                 "Outdoors", surface_obj, "Outside_Boundary_Condition"
             )
@@ -469,7 +446,7 @@ def _add_afn_surfaces(
             idf,
             "AirflowNetwork:MultiZone:Surface",
             Surface_Name=surface_name,
-            Leakage_Component_Name=_uid("crack", surface_name),
+            Leakage_Component_Name=aark.attma._utils.uid("crack", surface_name),
             External_Node_Name=external_node_uid,
             WindowDoor_Opening_Factor_or_Crack_Factor="1",
         )
@@ -479,7 +456,7 @@ def _add_afn_surfaces(
             idf,
             "AirflowNetwork:MultiZone:Surface",
             Surface_Name=door_name,
-            Leakage_Component_Name=_uid("internal_door_opening"),
+            Leakage_Component_Name=aark.attma._utils.uid("internal_door_opening"),
             WindowDoor_Opening_Factor_or_Crack_Factor="1",
             Ventilation_Control_Mode="NoVent",
         )
@@ -492,8 +469,10 @@ def _add_afn_surfaces(
             idf,
             "AirflowNetwork:MultiZone:Surface",
             Surface_Name=door_name,
-            Leakage_Component_Name=_uid("ambient_door_opening"),
-            External_Node_Name=_uid("external_node", parent_surface_obj.Name),
+            Leakage_Component_Name=aark.attma._utils.uid("ambient_door_opening"),
+            External_Node_Name=aark.attma._utils.uid(
+                "external_node", parent_surface_obj.Name
+            ),
             WindowDoor_Opening_Factor_or_Crack_Factor="1",
             Ventilation_Control_Mode="NoVent",
         )
@@ -504,7 +483,7 @@ def _add_afn_ref_crack_condition(idf: IDF) -> None:
     aark.ep.obj.add(
         idf,
         "AirflowNetwork:MultiZone:ReferenceCrackConditions",
-        Name=_uid("ref_crack_condition"),
+        Name=aark.attma._utils.uid("ref_crack_condition"),
         Reference_Temperature=str(REF_TEMPERATURE),
         Reference_Barometric_Pressure=str(REF_PRESSURE),
         Reference_Humidity_Ratio=str(REF_HUMIDITY_RATIO),
@@ -521,10 +500,10 @@ def _add_afn_cracks(
         aark.ep.obj.add(
             idf,
             "AirflowNetwork:MultiZone:Surface:Crack",
-            Name=_uid("crack", surface_name),
+            Name=aark.attma._utils.uid("crack", surface_name),
             Air_Mass_Flow_Coefficient_at_Reference_Conditions=str(coeff),
             Air_Mass_Flow_Exponent=str(exponent),
-            Reference_Crack_Conditions=_uid("ref_crack_condition"),
+            Reference_Crack_Conditions=aark.attma._utils.uid("ref_crack_condition"),
         )
 
 
@@ -553,7 +532,7 @@ def _add_afn_opening(
         aark.ep.obj.add(
             idf,
             "AirflowNetwork:MultiZone:Component:DetailedOpening",
-            Name=_uid("internal_door_opening"),
+            Name=aark.attma._utils.uid("internal_door_opening"),
             Air_Mass_Flow_Coefficient_When_Opening_is_Closed=airflow_tables[
                 "internal_door"
             ]["closed_mass_flow_coeff"],
@@ -573,7 +552,7 @@ def _add_afn_opening(
         aark.ep.obj.add(
             idf,
             "AirflowNetwork:MultiZone:Component:DetailedOpening",
-            Name=_uid("ambient_door_opening"),
+            Name=aark.attma._utils.uid("ambient_door_opening"),
             Air_Mass_Flow_Coefficient_When_Opening_is_Closed=airflow_tables[
                 "ambient_door"
             ]["closed_mass_flow_coeff"],
@@ -622,7 +601,7 @@ def _add_afn_external_nodes(
             aark.ep.obj.add(
                 idf,
                 "AirflowNetwork:MultiZone:ExternalNode",
-                Name=_uid("external_node", surface_name),
+                Name=aark.attma._utils.uid("external_node", surface_name),
                 External_Node_Height=str(ref_height),
                 Wind_Pressure_Coefficient_Curve_Name=record_name,
                 Symmetric_Wind_Pressure_Coefficient_Curve="Yes",
@@ -634,7 +613,7 @@ def _add_afn_wind_pressure_coeffs(
     idf: IDF, wind_pressure_coeff_records: Sequence[AirflowRecord]
 ) -> None:
     """Add the wind-angle array and grouped wind pressure coefficient records."""
-    angles_obj_name = _uid("wind_pressure_coeff_angles")
+    angles_obj_name = aark.attma._utils.uid("wind_pressure_coeff_angles")
 
     angles = wind_pressure_coeff_records[0]["angles"]
     obj_fields = {

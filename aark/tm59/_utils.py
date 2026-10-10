@@ -19,25 +19,12 @@ if TYPE_CHECKING:
 
 def prefix(s: str) -> str:
     """Prepend the package namespace to a string."""
-    p = aark._utils.prefix("tm59_")
-
-    if not s:
-        raise ValueError(f"Empty string: {s}.")
-
-    if s.upper().startswith(p.upper()):
-        raise ValueError(f"Prefix already exists: {s}.")
-
-    return f"{p}{s}"
+    return aark._utils.prefix(f"tm59_{s}")
 
 
 def _uid(*args: str) -> str:
     """Build a standard `aark`-generated UID."""
-    args = tuple(arg for arg in args if arg)
-
-    if not args:
-        raise ValueError(f"Empty UID arguments: {args}.")
-
-    return prefix("_".join(args))
+    return prefix("_".join(arg for arg in args if arg))
 
 
 def gain_uid(gain_type: str, zone_name: str) -> str:

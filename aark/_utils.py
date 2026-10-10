@@ -15,12 +15,6 @@ YEAR_END_MONTH_DAY = (12, 31)
 
 def prefix(s: str) -> str:
     """Prepend the package namespace to a string."""
-    if not s:
-        raise ValueError(f"Empty string: {s}.")
-
-    if s.upper().startswith(__package__.upper()):
-        raise ValueError(f"Prefix already exists: {s}.")
-
     return f"{__package__}_{s}"
 
 
