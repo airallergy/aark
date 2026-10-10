@@ -65,6 +65,26 @@ def compress_hourly_vals(hourly_vals: Sequence[str]) -> list[tuple[int, str]]:
     return compressed
 
 
+def add_type_limits_obj(idf: IDF, val_type: str) -> None:
+    """Add a schedule type limits object if it is absent."""
+    # validate the schedule value type
+    if val_type not in VAL_TYPE2LIMITS:
+        raise ValueError(f"Unknown schedule value type: {val_type}.")
+
+    # add the schedule type limits object
+    aark.ep.obj.add(
+        idf,
+        "ScheduleTypeLimits",
+        Name=aark._utils.prefix(val_type),
+        **VAL_TYPE2LIMITS[val_type],
+    )
+
+
+# -----------------------------------------------------------------------------
+# Compact
+# -----------------------------------------------------------------------------
+
+
 def make_compact_block(through: MonthDay, hourly_vals: Sequence[str]) -> list[str]:
     """Create one `Through` block for a compact schedule."""
     month, day = through
@@ -108,21 +128,6 @@ def make_compact_blocks(
         blocks.append(make_compact_block(YEAR_END_MONTH_DAY, zero_hourly_vals))
 
     return blocks
-
-
-def add_type_limits_obj(idf: IDF, val_type: str) -> None:
-    """Add a schedule type limits object if it is absent."""
-    # validate the schedule value type
-    if val_type not in VAL_TYPE2LIMITS:
-        raise ValueError(f"Unknown schedule value type: {val_type}.")
-
-    # add the schedule type limits object
-    aark.ep.obj.add(
-        idf,
-        "ScheduleTypeLimits",
-        Name=aark._utils.prefix(val_type),
-        **VAL_TYPE2LIMITS[val_type],
-    )
 
 
 def add_compact_obj(
