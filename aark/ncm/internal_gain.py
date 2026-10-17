@@ -25,7 +25,7 @@ def _add_occupancy(
     start_month_day: MonthDay,
     end_month_day: MonthDay,
 ) -> None:
-    """Add occupancy using NCM density, metabolism and latent percentage."""
+    """Add occupancy gain to one zone."""
     # get ncm data
     occupancy = ACTIVITY_DATABASE.get_occupancy(activity_name)
     daily_scheds, weekly_scheds, annual_scheds = ACTIVITY_DATABASE.get_sched(
@@ -64,47 +64,6 @@ def _add_occupancy(
     )
 
 
-def _add_lighting(
-    idf: IDF,
-    zone_name: str,
-    activity_name: str,
-    luminous_efficacy: float,
-    start_month_day: MonthDay,
-    end_month_day: MonthDay,
-) -> None:
-    """Add lighting using NCM illuminance and the supplied luminous efficacy."""
-    # get ncm data
-    lighting = ACTIVITY_DATABASE.get_lighting(activity_name, luminous_efficacy)
-    daily_scheds, weekly_scheds, annual_scheds = ACTIVITY_DATABASE.get_sched(
-        lighting["sched_name"]
-    )
-
-    # get object names
-    gain_obj_name = aark.ncm._utils.gain_uid("lighting", zone_name)
-
-    # add schedule objects
-    aark.ncm._utils.add_scheds(
-        idf,
-        daily_scheds,
-        weekly_scheds,
-        annual_scheds,
-        "Fraction",
-        start_month_day,
-        end_month_day,
-    )
-
-    # add the gain object
-    aark.ep.obj.add(
-        idf,
-        "Lights",
-        Name=gain_obj_name,
-        Zone_or_ZoneList_or_Space_or_SpaceList_Name=zone_name,
-        Schedule_Name=aark.ncm._utils.prefix(lighting["sched_name"]),
-        Design_Level_Calculation_Method="Watts/Area",
-        Watts_per_Floor_Area=lighting["power_density"],
-    )
-
-
 def _add_equipment(
     idf: IDF,
     zone_name: str,
@@ -112,7 +71,7 @@ def _add_equipment(
     start_month_day: MonthDay,
     end_month_day: MonthDay,
 ) -> None:
-    """Add equipment using NCM power density and latent percentage."""
+    """Add equipment gain to one zone."""
     # get ncm data
     equipment = ACTIVITY_DATABASE.get_equipment(activity_name)
     daily_scheds, weekly_scheds, annual_scheds = ACTIVITY_DATABASE.get_sched(
@@ -146,6 +105,47 @@ def _add_equipment(
     )
 
 
+def _add_lighting(
+    idf: IDF,
+    zone_name: str,
+    activity_name: str,
+    luminous_efficacy: float,
+    start_month_day: MonthDay,
+    end_month_day: MonthDay,
+) -> None:
+    """Add lighting gain to one zone."""
+    # get ncm data
+    lighting = ACTIVITY_DATABASE.get_lighting(activity_name, luminous_efficacy)
+    daily_scheds, weekly_scheds, annual_scheds = ACTIVITY_DATABASE.get_sched(
+        lighting["sched_name"]
+    )
+
+    # get object names
+    gain_obj_name = aark.ncm._utils.gain_uid("lighting", zone_name)
+
+    # add schedule objects
+    aark.ncm._utils.add_scheds(
+        idf,
+        daily_scheds,
+        weekly_scheds,
+        annual_scheds,
+        "Fraction",
+        start_month_day,
+        end_month_day,
+    )
+
+    # add the gain object
+    aark.ep.obj.add(
+        idf,
+        "Lights",
+        Name=gain_obj_name,
+        Zone_or_ZoneList_or_Space_or_SpaceList_Name=zone_name,
+        Schedule_Name=aark.ncm._utils.prefix(lighting["sched_name"]),
+        Design_Level_Calculation_Method="Watts/Area",
+        Watts_per_Floor_Area=lighting["power_density"],
+    )
+
+
 def apply(
     idf: IDF,
     zone_map: ActivityMap,
@@ -153,17 +153,23 @@ def apply(
     start_month_day: MonthDay = YEAR_START_MONTH_DAY,
     end_month_day: MonthDay = YEAR_END_MONTH_DAY,
 ) -> None:
-    """Apply NCM dwelling occupancy, lighting and equipment gains to the IDF.
+    """Apply internal gain profiles to the IDF.
 
     Load `aark.ncm.data.ACTIVITY_DATABASE` with `load(cur)` before calling.
 
     Parameters
     ----------
     idf : IDF
-        IDF to receive schedule and internal gain objects.
+        IDF to receive internal gain profiles.
     zone_map : ActivityMap
-        NCM activity names mapped to zone names, for example
-        `{"Dwell_DomBed": ["bedroom_1"]}`.
+        Activity names mapped to one or more zone names, for example:
+
+        ```python
+        {
+            "Dwell_DomBed": ["bedroom_1", "bedroom_2"],
+            "Dwell_DomLounge": ["lounge"],
+        }
+        ```
     luminous_efficacy : float
         Lighting luminous efficacy in lm W-1. Power density is
         `LIGHTING_LUX / luminous_efficacy`, assuming utilisation and
@@ -191,6 +197,11 @@ def apply(
             _add_occupancy(
                 idf, zone_name, activity_name, start_month_day, end_month_day
             )
+
+            _add_equipment(
+                idf, zone_name, activity_name, start_month_day, end_month_day
+            )
+
             _add_lighting(
                 idf,
                 zone_name,
@@ -198,9 +209,6 @@ def apply(
                 luminous_efficacy,
                 start_month_day,
                 end_month_day,
-            )
-            _add_equipment(
-                idf, zone_name, activity_name, start_month_day, end_month_day
             )
 
 

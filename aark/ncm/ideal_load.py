@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 def _add_setpoint_scheds(idf: IDF, setpoint_sched_name: str) -> None:
-    """Add schedule objects for one setpoint profile."""
+    """Add setpoint schedules to the IDF."""
     # get ncm data
     daily_scheds, weekly_scheds, annual_scheds = ACTIVITY_DATABASE.get_sched(
         setpoint_sched_name
@@ -280,22 +280,36 @@ def apply(
     cooling_start_month_day: MonthDay = YEAR_START_MONTH_DAY,
     cooling_end_month_day: MonthDay = YEAR_END_MONTH_DAY,
 ) -> None:
-    """Add unlimited ideal loads heating and cooling with NCM setpoint schedules.
+    """Apply thermostats to the IDF.
 
     Load `aark.ncm.data.ACTIVITY_DATABASE` with `load(cur)` before calling.
 
     Parameters
     ----------
     idf : IDF
-        IDF whose mapped zones have no existing equipment or thermostats.
+        IDF to receive thermostats.
     heating_zone_map, cooling_zone_map : ActivityMap or None, optional
-        NCM activity names mapped to zones to heat or cool, for example
-        `{"Dwell_DomBed": ["bedroom_1"]}`. At least one map must be non-empty, and
-        zones in both maps must have the same activity assignment.
-    heating_start_month_day, heating_end_month_day : MonthDay
+        Activity names mapped to one or more zones to heat or cool. At least
+        one map must be non-empty, and zones in both maps must have the same
+        activity assignment. For example:
+
+        ```python
+        heating_zone_map = {
+            "Dwell_DomBed": ["bedroom_1", "bedroom_2"],
+            "Dwell_DomLounge": ["lounge"],
+        }
+        cooling_zone_map = {
+            "Dwell_DomBed": ["bedroom_2", "bedroom_3"],
+            "Dwell_DomLounge": ["lounge"],
+        }
+        ```
+
+        Here, `bedroom_1` has heating only, `bedroom_3` has cooling only, and
+        `bedroom_2` and `lounge` have both.
+    heating_start_month_day, heating_end_month_day : MonthDay, optional
         Inclusive heating availability period as `(month, day)` pairs, defaulting
         to the whole year. A start after the end spans New Year.
-    cooling_start_month_day, cooling_end_month_day : MonthDay
+    cooling_start_month_day, cooling_end_month_day : MonthDay, optional
         Cooling availability period, with the same conventions as heating.
     """
     # validate aark requirements

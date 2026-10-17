@@ -35,7 +35,7 @@ def _read_rows(
 
 
 def get_sub_val_type(sched_name: str) -> str:
-    """Infer a schedule value subtype from an NCM activity schedule name."""
+    """Infer a schedule value subtype from an activity schedule name."""
     tokens = sched_name.lower().replace("_", " ").split()
 
     if ("cool" in tokens) or ("cooling" in tokens):
@@ -68,7 +68,7 @@ def _parse_hourly_vals(row: MappingProxyType[str, Any]) -> tuple[str, ...]:
 
 
 class _Database:
-    """Provide NCM data."""
+    """Provide NCM activity data."""
 
     __slots__ = (
         "_activity_rows",

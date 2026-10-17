@@ -127,7 +127,7 @@ def add_scheds(
     start_month_day: MonthDay,
     end_month_day: MonthDay,
 ) -> None:
-    """Add NCM schedules for one annual profile.
+    """Add schedules for one annual profile.
 
     Schedules with inactive values are assigned to custom days and inactive periods.
     """
