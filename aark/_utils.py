@@ -11,6 +11,31 @@ LEAP_REF_YEAR = 2000
 NON_LEAP_REF_YEAR = 1995
 YEAR_START_MONTH_DAY = (1, 1)
 YEAR_END_MONTH_DAY = (12, 31)
+DAY_NAMES = (
+    "",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+)
+MONTH_ABBRS = (
+    "",
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+)
 
 
 def prefix(s: str) -> str:

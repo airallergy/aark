@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 import aark._utils
 import aark.ep.obj
-from aark._utils import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
+from aark._utils import DAY_NAMES, YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -48,6 +48,30 @@ VAL_TYPE2LIMITS = {
         "Unit_Type": "Dimensionless",
     },
 }
+DAY_TYPES = (
+    DAY_NAMES[-1],
+    *DAY_NAMES[1:-1],
+    "Holiday",
+    "SummerDesignDay",
+    "WinterDesignDay",
+    "CustomDay1",
+    "CustomDay2",
+)
+
+
+def get_inactive_val(val_type: str, sub_val_type: str = "") -> str:
+    """Return a conventional inactive schedule value."""
+    if val_type == "Temperature":
+        if sub_val_type == "Heating":
+            return VAL_TYPE2LIMITS[val_type]["Lower_Limit_Value"]
+        elif sub_val_type == "Cooling":
+            return VAL_TYPE2LIMITS[val_type]["Upper_Limit_Value"]
+    elif val_type in VAL_TYPE2LIMITS:
+        return VAL_TYPE2LIMITS[val_type]["Lower_Limit_Value"]
+
+    raise ValueError(
+        f"Unsupported schedule value type and subtype: {val_type}, {sub_val_type}."
+    )
 
 
 def compress_hourly_vals(hourly_vals: Sequence[str]) -> list[tuple[int, str]]:
@@ -78,6 +102,69 @@ def add_type_limits_obj(idf: IDF, val_type: str) -> None:
         Name=aark._utils.prefix(val_type),
         **VAL_TYPE2LIMITS[val_type],
     )
+
+
+# -----------------------------------------------------------------------------
+# Day-week-year
+# -----------------------------------------------------------------------------
+
+
+def add_day_obj(
+    idf: IDF, obj_name: str, val_type: str, hourly_vals: Sequence[str]
+) -> None:
+    """Add a `Schedule:Day:Hourly` object if it is absent."""
+    if len(hourly_vals) != 24:
+        raise ValueError(f"Invalid length for 24 hourly values: {len(hourly_vals)}.")
+
+    # add the schedule type limits object
+    add_type_limits_obj(idf, val_type)
+
+    # add the day schedule object
+    obj_fields = {
+        "Name": obj_name,
+        "Schedule_Type_Limits_Name": aark._utils.prefix(val_type),
+    }
+    for i, val in enumerate(hourly_vals, start=1):
+        obj_fields[f"Hour_{i}"] = val
+
+    aark.ep.obj.add(idf, "Schedule:Day:Hourly", **obj_fields)
+
+
+def add_week_obj(idf: IDF, obj_name: str, **day_type2obj_name: str) -> None:
+    """Add a `Schedule:Week:Daily` object if it is absent."""
+    obj_fields = {"Name": obj_name}
+    for day_type, day_obj_name in day_type2obj_name.items():
+        obj_fields[f"{day_type}_ScheduleDay_Name"] = day_obj_name
+
+    aark.ep.obj.add(idf, "Schedule:Week:Daily", **obj_fields)
+
+
+def add_year_obj(
+    idf: IDF, obj_name: str, val_type: str, *blocks: tuple[MonthDay, MonthDay, str]
+) -> None:
+    """Add a `Schedule:Year` object if it is absent."""
+    # add the schedule type limits object
+    add_type_limits_obj(idf, val_type)
+
+    # add the year schedule object
+    obj_fields = {
+        "Name": obj_name,
+        "Schedule_Type_Limits_Name": aark._utils.prefix(val_type),
+    }
+    for i, (start_month_day, end_month_day, week_obj_name) in enumerate(
+        blocks, start=1
+    ):
+        start_month, start_day = start_month_day
+        end_month, end_day = end_month_day
+
+        obj_fields |= {
+            f"ScheduleWeek_Name_{i}": week_obj_name,
+            f"Start_Month_{i}": str(start_month),
+            f"Start_Day_{i}": str(start_day),
+            f"End_Month_{i}": str(end_month),
+            f"End_Day_{i}": str(end_day),
+        }
+    aark.ep.obj.add(idf, "Schedule:Year", **obj_fields)
 
 
 # -----------------------------------------------------------------------------
@@ -133,7 +220,7 @@ def make_compact_blocks(
 def add_compact_obj(
     idf: IDF, obj_name: str, val_type: str, *blocks: Sequence[str]
 ) -> None:
-    """Add a compact schedule object if it is absent."""
+    """Add a `Schedule:Compact` object if it is absent."""
     # validate the blocks
     if not blocks:
         raise ValueError(f"No compact schedule block: {blocks}.")
@@ -153,3 +240,23 @@ def add_compact_obj(
         obj_fields[f"Field_{i}"] = val
 
     aark.ep.obj.add(idf, "Schedule:Compact", **obj_fields)
+
+
+# -----------------------------------------------------------------------------
+# Constant
+# -----------------------------------------------------------------------------
+
+
+def add_constant_obj(idf: IDF, obj_name: str, val_type: str, val: str) -> None:
+    """Add a `Schedule:Constant` object if it is absent."""
+    # add the schedule type limits object
+    add_type_limits_obj(idf, val_type)
+
+    # add the constant schedule object
+    aark.ep.obj.add(
+        idf,
+        "Schedule:Constant",
+        Name=obj_name,
+        Schedule_Type_Limits_Name=aark._utils.prefix(val_type),
+        Hourly_Value=val,
+    )
