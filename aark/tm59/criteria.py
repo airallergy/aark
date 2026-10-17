@@ -38,7 +38,7 @@ def _parsed_non_adaptive_criterion_args(
     start_month_day: MonthDay,
     end_month_day: MonthDay,
     n_hourly_timesteps: int,
-    is_leap: bool = False,
+    is_leap: bool,
 ) -> FloatArr2D:
     """Convert and validate inputs shared by the three non-adaptive criteria."""
     # normalise

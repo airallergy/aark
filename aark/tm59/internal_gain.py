@@ -2,6 +2,7 @@
 
 from typing import TYPE_CHECKING
 
+import aark._utils
 import aark.ep._pact
 import aark.ep.obj
 import aark.ep.sched
@@ -233,6 +234,7 @@ def apply(
 
     # validate user inputs
     _validate_zone_maps(idf, zone_maps)
+    aark._utils.validate_month_days(start_month_day, end_month_day)
 
     # apply to each dwelling or communal corridor
     for zone_map in zone_maps:

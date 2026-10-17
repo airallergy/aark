@@ -28,6 +28,12 @@ def as_date(month_day: MonthDay, year: int = LEAP_REF_YEAR) -> dt.date:
 # -----------------------------------------------------------------------------
 
 
+def validate_month_days(*month_days: MonthDay) -> None:
+    """Validate month-day pairs using the reference leap year."""
+    for month_day in month_days:
+        as_date(month_day)
+
+
 def validate_n_timesteps(n_timesteps: int) -> None:
     """Validate that the number of timesteps is positive."""
     if n_timesteps <= 0:

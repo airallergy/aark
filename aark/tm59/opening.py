@@ -2,6 +2,7 @@
 
 from typing import TYPE_CHECKING
 
+import aark._utils
 import aark.ep._pact
 import aark.ep.afn
 import aark.ep.field
@@ -350,6 +351,7 @@ def apply(
     _validate_doors(idf, doors)
     _validate_asleep_closed_windows(window_map, asleep_closed_windows)
     _validate_awake_closed_doors(doors, awake_closed_doors)
+    aark._utils.validate_month_days(start_month_day, end_month_day)
 
     _apply_external_windows(
         idf, window_map, start_month_day, end_month_day, asleep_closed_windows
