@@ -2,6 +2,8 @@
 
 from typing import TYPE_CHECKING
 
+import eppy.bunchhelpers
+
 import aark._utils
 import aark.ep._pact
 import aark.ep.obj
@@ -11,6 +13,8 @@ from aark._utils import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
 from aark.ncm.data import ACTIVITY_DATABASE
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from eppy.modeleditor import IDF
 
     from aark._utils import MonthDay
@@ -36,13 +40,14 @@ def _add_setpoint_scheds(idf: IDF, setpoint_sched_name: str) -> None:
     )
 
 
-def _add_avail_sched(
+def _add_avail(
     idf: IDF,
     avail_sched_obj_name: str,
+    avail_field_paths: Sequence[tuple[str, str, str]],
     start_month_day: MonthDay,
     end_month_day: MonthDay,
 ) -> None:
-    """Add a seasonal availability schedule."""
+    """Add an availability schedule and assign it to the specified fields."""
     # mask availability values outside the active period
     sched_endpoints = aark.ncm._utils.mask_endpoints(
         [(YEAR_END_MONTH_DAY, "1")], "0", start_month_day, end_month_day
@@ -56,77 +61,41 @@ def _add_avail_sched(
     # add the availability schedule object
     aark.ep.sched.add_compact_obj(idf, avail_sched_obj_name, "On/Off", *sched_blocks)
 
+    # assign the availability schedule using the supplied field paths
+    for cls_name, obj_name, field_name in avail_field_paths:
+        obj = aark.ep.obj.get_named(idf, cls_name, obj_name)
+        obj[eppy.bunchhelpers.makefieldname(field_name)] = avail_sched_obj_name
 
-def _add_zone_objs(
+
+def _set_thermostat(
     idf: IDF,
     zone_name: str,
     setpoint_cls_name: str,
     setpoint_obj_name: str,
     control_sched_obj_name: str,
-    heating_avail_sched_obj_name: str,
-    cooling_avail_sched_obj_name: str,
 ) -> None:
-    """Add one zone's thermostat, ideal loads system and equipment connections."""
-    # get object and node names
-    thermostat_obj_name = aark.ncm._utils.prefix(f"thermostat_{zone_name}")
-    sys_obj_name = aark.ncm._utils.prefix(f"ideal_loads_{zone_name}")
-    equipment_list_obj_name = aark.ncm._utils.prefix(f"equipment_list_{zone_name}")
-    supply_air_node_name = aark.ncm._utils.prefix(f"supply_{zone_name}")
-    zone_air_node_name = aark.ncm._utils.prefix(f"air_{zone_name}")
-    return_air_node_name = aark.ncm._utils.prefix(f"return_{zone_name}")
-
-    # add the zone thermostat object
-    aark.ep.obj.add(
-        idf,
-        "ZoneControl:Thermostat",
-        Name=thermostat_obj_name,
-        Zone_or_ZoneList_Name=zone_name,
-        Control_Type_Schedule_Name=control_sched_obj_name,
-        Control_1_Object_Type=setpoint_cls_name,
-        Control_1_Name=setpoint_obj_name,
+    """Set the control mode and setpoint object for the zone thermostat."""
+    # find the thermostat directly assigned to the zone
+    (thermostat_obj,) = (
+        obj
+        for obj in idf.idfobjects["ZoneControl:Thermostat"]
+        if zone_name == obj.Zone_or_ZoneList_Name
     )
 
-    # add the ideal loads system object
-    aark.ep.obj.add(
-        idf,
-        "ZoneHVAC:IdealLoadsAirSystem",
-        Name=sys_obj_name,
-        Zone_Supply_Air_Node_Name=supply_air_node_name,
-        Heating_Availability_Schedule_Name=heating_avail_sched_obj_name,
-        Cooling_Availability_Schedule_Name=cooling_avail_sched_obj_name,
-    )
+    # replace the existing controls
+    thermostat_obj.Control_Type_Schedule_Name = control_sched_obj_name
+    thermostat_obj.Control_1_Object_Type = setpoint_cls_name
+    thermostat_obj.Control_1_Name = setpoint_obj_name
 
-    # add the zone equipment list object
-    aark.ep.obj.add(
-        idf,
-        "ZoneHVAC:EquipmentList",
-        Name=equipment_list_obj_name,
-        Zone_Equipment_1_Object_Type="ZoneHVAC:IdealLoadsAirSystem",
-        Zone_Equipment_1_Name=sys_obj_name,
-        Zone_Equipment_1_Cooling_Sequence="1",
-        Zone_Equipment_1_Heating_or_NoLoad_Sequence="1",
-    )
+    for i in range(2, 5):
+        thermostat_obj[f"Control_{i}_Object_Type"] = ""
+        thermostat_obj[f"Control_{i}_Name"] = ""
 
-    # add the zone equipment connections object
-    aark.ep.obj.add(
-        idf,
-        "ZoneHVAC:EquipmentConnections",
-        Zone_Name=zone_name,
-        Zone_Conditioning_Equipment_List_Name=equipment_list_obj_name,
-        Zone_Air_Inlet_Node_or_NodeList_Name=supply_air_node_name,
-        Zone_Air_Node_Name=zone_air_node_name,
-        Zone_Return_Air_Node_or_NodeList_Name=return_air_node_name,
-    )
+    aark.ep.obj.rstrip(thermostat_obj)
 
 
-def _add_heating(
-    idf: IDF,
-    zone_name: str,
-    activity_name: str,
-    start_month_day: MonthDay,
-    end_month_day: MonthDay,
-) -> None:
-    """Add ideal loads heating to one zone."""
+def _add_heating_setpoint(idf: IDF, zone_name: str, activity_name: str) -> None:
+    """Add a heating setpoint to one zone."""
     setpoint_cls_name = "ThermostatSetpoint:SingleHeating"
 
     # get ncm data
@@ -135,13 +104,11 @@ def _add_heating(
     # get object names
     control_sched_obj_name = aark.ncm._utils.sched_uid("heating_control")
     setpoint_sched_obj_name = aark.ncm._utils.prefix(heating["sched_name"])
-    avail_sched_obj_name = aark.ncm._utils.sched_uid("heating_avail")
     setpoint_obj_name = aark.ncm._utils.prefix(f"heating_setpoint_{activity_name}")
 
     # add schedule objects
     aark.ep.sched.add_constant_obj(idf, control_sched_obj_name, "Control", "1")
     _add_setpoint_scheds(idf, heating["sched_name"])
-    _add_avail_sched(idf, avail_sched_obj_name, start_month_day, end_month_day)
 
     # add the heating setpoint object
     aark.ep.obj.add(
@@ -151,26 +118,14 @@ def _add_heating(
         Setpoint_Temperature_Schedule_Name=setpoint_sched_obj_name,
     )
 
-    # add the zone thermostat, system and equipment connections
-    _add_zone_objs(
-        idf,
-        zone_name,
-        setpoint_cls_name,
-        setpoint_obj_name,
-        control_sched_obj_name,
-        avail_sched_obj_name,
-        "",
+    # update the existing zone thermostat
+    _set_thermostat(
+        idf, zone_name, setpoint_cls_name, setpoint_obj_name, control_sched_obj_name
     )
 
 
-def _add_cooling(
-    idf: IDF,
-    zone_name: str,
-    activity_name: str,
-    start_month_day: MonthDay,
-    end_month_day: MonthDay,
-) -> None:
-    """Add ideal loads cooling to one zone."""
+def _add_cooling_setpoint(idf: IDF, zone_name: str, activity_name: str) -> None:
+    """Add a cooling setpoint to one zone."""
     setpoint_cls_name = "ThermostatSetpoint:SingleCooling"
 
     # get ncm data
@@ -179,13 +134,11 @@ def _add_cooling(
     # get object names
     control_sched_obj_name = aark.ncm._utils.sched_uid("cooling_control")
     setpoint_sched_obj_name = aark.ncm._utils.prefix(cooling["sched_name"])
-    avail_sched_obj_name = aark.ncm._utils.sched_uid("cooling_avail")
     setpoint_obj_name = aark.ncm._utils.prefix(f"cooling_setpoint_{activity_name}")
 
     # add schedule objects
     aark.ep.sched.add_constant_obj(idf, control_sched_obj_name, "Control", "2")
     _add_setpoint_scheds(idf, cooling["sched_name"])
-    _add_avail_sched(idf, avail_sched_obj_name, start_month_day, end_month_day)
 
     # add the cooling setpoint object
     aark.ep.obj.add(
@@ -195,28 +148,14 @@ def _add_cooling(
         Setpoint_Temperature_Schedule_Name=setpoint_sched_obj_name,
     )
 
-    # add the zone thermostat, system and equipment connections
-    _add_zone_objs(
-        idf,
-        zone_name,
-        setpoint_cls_name,
-        setpoint_obj_name,
-        control_sched_obj_name,
-        "",
-        avail_sched_obj_name,
+    # update the existing zone thermostat
+    _set_thermostat(
+        idf, zone_name, setpoint_cls_name, setpoint_obj_name, control_sched_obj_name
     )
 
 
-def _add_heating_cooling(
-    idf: IDF,
-    zone_name: str,
-    activity_name: str,
-    heating_start_month_day: MonthDay,
-    heating_end_month_day: MonthDay,
-    cooling_start_month_day: MonthDay,
-    cooling_end_month_day: MonthDay,
-) -> None:
-    """Add ideal loads heating and cooling to one zone."""
+def _add_heating_cooling_setpoint(idf: IDF, zone_name: str, activity_name: str) -> None:
+    """Add heating and cooling setpoints to one zone."""
     setpoint_cls_name = "ThermostatSetpoint:DualSetpoint"
 
     # get ncm data
@@ -227,8 +166,6 @@ def _add_heating_cooling(
     control_sched_obj_name = aark.ncm._utils.sched_uid("heating_cooling_control")
     heating_setpoint_sched_obj_name = aark.ncm._utils.prefix(heating["sched_name"])
     cooling_setpoint_sched_obj_name = aark.ncm._utils.prefix(cooling["sched_name"])
-    heating_avail_sched_obj_name = aark.ncm._utils.sched_uid("heating_avail")
-    cooling_avail_sched_obj_name = aark.ncm._utils.sched_uid("cooling_avail")
     setpoint_obj_name = aark.ncm._utils.prefix(
         f"heating_cooling_setpoint_{activity_name}"
     )
@@ -237,18 +174,6 @@ def _add_heating_cooling(
     aark.ep.sched.add_constant_obj(idf, control_sched_obj_name, "Control", "4")
     _add_setpoint_scheds(idf, heating["sched_name"])
     _add_setpoint_scheds(idf, cooling["sched_name"])
-    _add_avail_sched(
-        idf,
-        heating_avail_sched_obj_name,
-        heating_start_month_day,
-        heating_end_month_day,
-    )
-    _add_avail_sched(
-        idf,
-        cooling_avail_sched_obj_name,
-        cooling_start_month_day,
-        cooling_end_month_day,
-    )
 
     # add the dual setpoint object
     aark.ep.obj.add(
@@ -259,15 +184,9 @@ def _add_heating_cooling(
         Cooling_Setpoint_Temperature_Schedule_Name=cooling_setpoint_sched_obj_name,
     )
 
-    # add the zone thermostat, system and equipment connections
-    _add_zone_objs(
-        idf,
-        zone_name,
-        setpoint_cls_name,
-        setpoint_obj_name,
-        control_sched_obj_name,
-        heating_avail_sched_obj_name,
-        cooling_avail_sched_obj_name,
+    # update the existing zone thermostat
+    _set_thermostat(
+        idf, zone_name, setpoint_cls_name, setpoint_obj_name, control_sched_obj_name
     )
 
 
@@ -279,6 +198,8 @@ def apply(
     heating_end_month_day: MonthDay = YEAR_END_MONTH_DAY,
     cooling_start_month_day: MonthDay = YEAR_START_MONTH_DAY,
     cooling_end_month_day: MonthDay = YEAR_END_MONTH_DAY,
+    heating_avail_field_paths: Sequence[tuple[str, str, str]] = (),
+    cooling_avail_field_paths: Sequence[tuple[str, str, str]] = (),
 ) -> None:
     """Apply thermostats to the IDF.
 
@@ -311,6 +232,15 @@ def apply(
         to the whole year. A start after the end spans New Year.
     cooling_start_month_day, cooling_end_month_day : MonthDay, optional
         Cooling availability period, with the same conventions as heating.
+    heating_avail_field_paths, cooling_avail_field_paths : Sequence[tuple[str, str, str]], optional
+        Paths to heating and cooling availability fields to update, given as
+        `(class_name, object_name, field_name)` tuples. For example:
+
+        ```python
+        heating_avail_field_paths = [
+            ("AvailabilityManager:Scheduled", "Heating Manager", "Schedule Name"),
+        ]
+        ```
     """
     # validate aark requirements
     aark.ep._pact.validate_ep_ver(idf)
@@ -331,43 +261,46 @@ def apply(
         cooling_start_month_day,
         cooling_end_month_day,
     )
+    _validate_avail_field_paths(
+        idf, heating_avail_field_paths, cooling_avail_field_paths
+    )
 
     # apply heating and cooling to each activity's zones
     for activity_name in heating_zone_map.keys() | cooling_zone_map.keys():
         heating_zone_names = set(heating_zone_map.get(activity_name, ()))
         cooling_zone_names = set(cooling_zone_map.get(activity_name, ()))
 
-        # add heating only
+        # add the heating setpoint
         for zone_name in sorted(heating_zone_names - cooling_zone_names):
-            _add_heating(
-                idf,
-                zone_name,
-                activity_name,
-                heating_start_month_day,
-                heating_end_month_day,
-            )
+            _add_heating_setpoint(idf, zone_name, activity_name)
 
-        # add cooling only
+        # add the cooling setpoint
         for zone_name in sorted(cooling_zone_names - heating_zone_names):
-            _add_cooling(
-                idf,
-                zone_name,
-                activity_name,
-                cooling_start_month_day,
-                cooling_end_month_day,
-            )
+            _add_cooling_setpoint(idf, zone_name, activity_name)
 
-        # add heating and cooling
+        # add the heating and cooling setpoints
         for zone_name in sorted(heating_zone_names & cooling_zone_names):
-            _add_heating_cooling(
-                idf,
-                zone_name,
-                activity_name,
-                heating_start_month_day,
-                heating_end_month_day,
-                cooling_start_month_day,
-                cooling_end_month_day,
-            )
+            _add_heating_cooling_setpoint(idf, zone_name, activity_name)
+
+    # add heating availability
+    if heating_avail_field_paths:
+        _add_avail(
+            idf,
+            aark.ncm._utils.sched_uid("heating_avail"),
+            heating_avail_field_paths,
+            heating_start_month_day,
+            heating_end_month_day,
+        )
+
+    # add cooling availability
+    if cooling_avail_field_paths:
+        _add_avail(
+            idf,
+            aark.ncm._utils.sched_uid("cooling_avail"),
+            cooling_avail_field_paths,
+            cooling_start_month_day,
+            cooling_end_month_day,
+        )
 
 
 # -----------------------------------------------------------------------------
@@ -411,4 +344,39 @@ def _validate_zone_maps(
         if heating_activity_name != cooling_activity_name:
             raise ValueError(
                 f"Conflicting heating and cooling activity assignments: {(zone_name, heating_activity_name, cooling_activity_name)}."
+            )
+
+
+def _validate_avail_field_paths(
+    idf: IDF,
+    heating_avail_field_paths: Sequence[tuple[str, str, str]],
+    cooling_avail_field_paths: Sequence[tuple[str, str, str]],
+) -> None:
+    """Validate that availability field paths exist and do not conflict."""
+    # heating and cooling field paths must not identify the same field
+    normalised_heating_field_paths = {
+        tuple(map(str.upper, field_path)) for field_path in heating_avail_field_paths
+    }
+    normalised_cooling_field_paths = {
+        tuple(map(str.upper, field_path)) for field_path in cooling_avail_field_paths
+    }
+    conflicting_field_paths = (
+        normalised_heating_field_paths & normalised_cooling_field_paths
+    )
+    if conflicting_field_paths:
+        raise ValueError(
+            f"Overlapping heating and cooling availability field paths: {sorted(conflicting_field_paths)}."
+        )
+
+    for cls_name, obj_name, field_name in (
+        *heating_avail_field_paths,
+        *cooling_avail_field_paths,
+    ):
+        # field paths must identify existing objects
+        obj = aark.ep.obj.get_named(idf, cls_name, obj_name)
+
+        # fields must exist on the identified objects
+        if eppy.bunchhelpers.makefieldname(field_name) not in obj.fieldnames:
+            raise ValueError(
+                f"Missing availability field: {(cls_name, obj_name, field_name)}."
             )
