@@ -146,7 +146,7 @@ def _add_window(
 
     # add the availability schedule
     avail_hourly_factors = _get_window_avail_hourly_factors(room_type, asleep_closed)
-    avail_sched_blocks = aark.ep.sched.make_compact_blocks(
+    avail_sched_blocks = aark.tm59._utils.make_compact_blocks(
         avail_hourly_factors, start_month_day, end_month_day
     )
     aark.ep.sched.add_compact_obj(
@@ -212,7 +212,7 @@ def _add_door(
 
     # add the availability schedule
     avail_hourly_factors = _get_door_avail_hourly_factors(awake_closed)
-    sched_blocks = aark.ep.sched.make_compact_blocks(
+    sched_blocks = aark.tm59._utils.make_compact_blocks(
         avail_hourly_factors, start_month_day, end_month_day
     )
     aark.ep.sched.add_compact_obj(idf, sched_obj_name, "On/Off", *sched_blocks)

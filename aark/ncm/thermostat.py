@@ -56,7 +56,9 @@ def _add_avail(
     # build the compact availability schedule
     sched_blocks = []
     for month_day, val in sched_endpoints:
-        sched_blocks.append(aark.ep.sched.make_compact_block(month_day, (val,) * 24))
+        sched_blocks.append(
+            aark.ep.sched.make_compact_block(month_day, ("AllDays", (val,) * 24))
+        )
 
     # add the availability schedule object
     aark.ep.sched.add_compact_obj(idf, avail_sched_obj_name, "On/Off", *sched_blocks)

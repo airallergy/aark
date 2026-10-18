@@ -52,14 +52,16 @@ def _add_occupancy(
     gain_obj_name = aark.tm59._utils.gain_uid(gain_type, zone_name)
 
     # add schedule objects
-    occupancy_sched_blocks = aark.ep.sched.make_compact_blocks(
+    occupancy_sched_blocks = aark.tm59._utils.make_compact_blocks(
         occupancy_hourly_factors, start_month_day, end_month_day
     )
     aark.ep.sched.add_compact_obj(
         idf, occupancy_sched_obj_name, "Fraction", *occupancy_sched_blocks
     )
 
-    metabolic_sched_blocks = aark.ep.sched.make_compact_blocks(metabolic_hourly_factors)
+    metabolic_sched_blocks = aark.tm59._utils.make_compact_blocks(
+        metabolic_hourly_factors
+    )
     aark.ep.sched.add_compact_obj(
         idf, metabolic_sched_obj_name, "Metabolism", *metabolic_sched_blocks
     )
@@ -97,7 +99,7 @@ def _add_equipment(
     gain_obj_name = aark.tm59._utils.gain_uid(gain_type, zone_name)
 
     # add schedule objects
-    sched_blocks = aark.ep.sched.make_compact_blocks(
+    sched_blocks = aark.tm59._utils.make_compact_blocks(
         hourly_factors, start_month_day, end_month_day
     )
     aark.ep.sched.add_compact_obj(idf, sched_obj_name, "Fraction", *sched_blocks)
@@ -129,7 +131,7 @@ def _add_lighting(
     gain_obj_name = aark.tm59._utils.gain_uid(gain_type, zone_name)
 
     # add schedule objects
-    sched_blocks = aark.ep.sched.make_compact_blocks(
+    sched_blocks = aark.tm59._utils.make_compact_blocks(
         hourly_factors, start_month_day, end_month_day
     )
     aark.ep.sched.add_compact_obj(idf, sched_obj_name, "Fraction", *sched_blocks)

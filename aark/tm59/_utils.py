@@ -1,15 +1,63 @@
 """Utility functions shared by TM59 modules."""
 
+import datetime as dt
 import re
 from typing import TYPE_CHECKING
 
 import aark._utils
+import aark.ep.sched
+from aark._utils import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
 from aark.tm59.data import ALL_ROOM_TYPES
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
+    from aark._utils import MonthDay
+
     type RoomMap = Mapping[str, Sequence[str]]
+
+
+def make_compact_blocks(
+    hourly_vals: Sequence[str],
+    start_month_day: MonthDay = YEAR_START_MONTH_DAY,
+    end_month_day: MonthDay = YEAR_END_MONTH_DAY,
+) -> list[list[str]]:
+    """Create compact schedule blocks with zero values outside an active period."""
+    # parse and validate two dates
+    start_date = aark._utils.as_date(start_month_day)
+    end_date = aark._utils.as_date(end_month_day)
+
+    if start_date > end_date:
+        raise ValueError(
+            f"Start month-day must not be after end month-day: {start_month_day}, {end_month_day}."
+        )
+
+    zero_hourly_vals = ("0",) * 24
+    blocks = []
+
+    if start_date != aark._utils.as_date(YEAR_START_MONTH_DAY):
+        inactive_end_date = start_date - dt.timedelta(days=1)
+        blocks.append(
+            aark.ep.sched.make_compact_block(
+                (inactive_end_date.month, inactive_end_date.day),
+                ("AllDays", zero_hourly_vals),
+            )
+        )
+
+    blocks.append(
+        aark.ep.sched.make_compact_block(
+            (end_date.month, end_date.day), ("AllDays", hourly_vals)
+        )
+    )
+
+    if end_date != aark._utils.as_date(YEAR_END_MONTH_DAY):
+        blocks.append(
+            aark.ep.sched.make_compact_block(
+                YEAR_END_MONTH_DAY, ("AllDays", zero_hourly_vals)
+            )
+        )
+
+    return blocks
 
 
 # -----------------------------------------------------------------------------
