@@ -165,13 +165,27 @@ class _Database:
         """Get heating data."""
         row = self._get_row(activity_name)
 
-        return {"sched_name": self._get_sched_name(row["HEAT_SET_SCH"])}
+        setpoint = row["HEAT_SET_POINT"]
+        if setpoint is None:
+            setpoint = aark.ep.sched.get_inactive_val("Temperature", "Heating")
+
+        return {
+            "sched_name": self._get_sched_name(row["HEAT_SET_SCH"]),
+            "setpoint": str(setpoint),
+        }
 
     def get_cooling(self, activity_name: str) -> dict[str, str]:
         """Get cooling data."""
         row = self._get_row(activity_name)
 
-        return {"sched_name": self._get_sched_name(row["COOL_SET_SCH"])}
+        setpoint = row["COOL_SET_POINT"]
+        if setpoint is None:
+            setpoint = aark.ep.sched.get_inactive_val("Temperature", "Cooling")
+
+        return {
+            "sched_name": self._get_sched_name(row["COOL_SET_SCH"]),
+            "setpoint": str(setpoint),
+        }
 
     def get_sched(
         self, annual_sched_name: str

@@ -58,7 +58,7 @@ def mask_endpoints(
     start_month_day: MonthDay,
     end_month_day: MonthDay,
 ) -> list[tuple[MonthDay, str]]:
-    """Order whole-year endpoints and replace items outside the active period."""
+    """Order full-year endpoints and replace items outside the active period."""
     _validate_endpoints(endpoints)
 
     endpoints = list(endpoints)
@@ -103,7 +103,7 @@ def mask_endpoints(
 def expand_endpoints(
     endpoints: Sequence[tuple[MonthDay, str]],
 ) -> list[tuple[MonthDay, MonthDay, str]]:
-    """Expand whole-year endpoints into inclusive intervals from 1 January."""
+    """Expand full-year endpoints into inclusive intervals from 1 January."""
     _validate_endpoints(endpoints)
 
     start_date = aark._utils.as_date(YEAR_START_MONTH_DAY)
@@ -126,11 +126,20 @@ def add_scheds(
     val_type: str,
     start_month_day: MonthDay,
     end_month_day: MonthDay,
+    setpoint: str = "",
 ) -> None:
     """Add schedules for one annual profile.
 
-    Schedules with inactive values are assigned to custom days and inactive periods.
+    Temperature schedules must cover a full calendar year.
     """
+    if (val_type == "Temperature") and (
+        (start_month_day != YEAR_START_MONTH_DAY)
+        or (end_month_day != YEAR_END_MONTH_DAY)
+    ):
+        raise ValueError(
+            f"Temperature schedules must cover a full calendar year: {start_month_day}, {end_month_day}."
+        )
+
     # infer the schedule value subtype
     (annual_sched_name,) = annual_scheds
     sub_val_type = aark.ncm.data.activity.get_sub_val_type(annual_sched_name)
@@ -138,51 +147,83 @@ def add_scheds(
     # get the inactive value
     inactive_val = aark.ep.sched.get_inactive_val(val_type, sub_val_type)
 
-    # get inactive schedule object names
+    # set the fixed design and custom day values
+    if val_type == "Temperature":
+        winter_design_val = summer_design_val = custom_day_val = setpoint
+    else:
+        winter_design_val = custom_day_val = inactive_val
+        summer_design_val = aark.ep.sched.get_active_val(val_type)
+
+    # add the inactive day schedule
     suffix = f"{val_type.lower()}"
     if sub_val_type:
         suffix += f"_{sub_val_type.lower()}"
     inactive_day_sched_obj_name = prefix(f"daily_inactive_{suffix}")
-    inactive_week_sched_obj_name = prefix(f"weekly_inactive_{suffix}")
 
-    # add inactive day and week schedules
-    aark.ep.sched.add_type_limits_obj(idf, val_type)
-    aark.ep.obj.add(
-        idf,
-        "Schedule:Day:Interval",
-        Name=inactive_day_sched_obj_name,
-        Schedule_Type_Limits_Name=aark._utils.prefix(val_type),
-        Interpolate_to_Timestep="No",
-        Time_1="Until: 24:00",
-        Value_Until_Time_1=inactive_val,
-    )
-    aark.ep.obj.add(
-        idf,
-        "Schedule:Week:Compact",
-        Name=inactive_week_sched_obj_name,
-        DayType_List_1="AllDays",
-        ScheduleDay_Name_1=inactive_day_sched_obj_name,
-    )
+    if (val_type != "Temperature") or (setpoint == inactive_val):
+        aark.ep.sched.add_type_limits_obj(idf, val_type)
+        aark.ep.obj.add(
+            idf,
+            "Schedule:Day:Interval",
+            Name=inactive_day_sched_obj_name,
+            Schedule_Type_Limits_Name=aark._utils.prefix(val_type),
+            Interpolate_to_Timestep="No",
+            Time_1="Until: 24:00",
+            Value_Until_Time_1=inactive_val,
+        )
 
-    # add day schedules
+    # add constant design and custom day schedules
+    special_day_type2sched_obj_name = {}
+    for day_type, val in (
+        ("SummerDesignDay", summer_design_val),
+        ("WinterDesignDay", winter_design_val),
+        ("CustomDay1", custom_day_val),
+        ("CustomDay2", custom_day_val),
+    ):
+        if val == inactive_val:
+            day_sched_obj_name = inactive_day_sched_obj_name
+        else:
+            if val_type == "Temperature":
+                day_sched_obj_name = prefix(f"daily_constant_setpoint_{val}")
+            else:
+                day_sched_obj_name = prefix(f"daily_constantly_active_{suffix}")
+
+            aark.ep.sched.add_day_obj(idf, day_sched_obj_name, val_type, (val,) * 24)
+
+        special_day_type2sched_obj_name[day_type] = day_sched_obj_name
+
+    # add the inactive week schedule
+    if val_type != "Temperature":
+        inactive_week_sched_obj_name = prefix(f"weekly_inactive_{suffix}")
+
+        aark.ep.obj.add(
+            idf,
+            "Schedule:Week:Compact",
+            Name=inactive_week_sched_obj_name,
+            DayType_List_1="SummerDesignDay",
+            ScheduleDay_Name_1=special_day_type2sched_obj_name["SummerDesignDay"],
+            DayType_List_2="WinterDesignDay",
+            ScheduleDay_Name_2=special_day_type2sched_obj_name["WinterDesignDay"],
+            DayType_List_3="CustomDay1 CustomDay2",
+            ScheduleDay_Name_3=special_day_type2sched_obj_name["CustomDay1"],
+            DayType_List_4="AllOtherDays",
+            ScheduleDay_Name_4=inactive_day_sched_obj_name,
+        )
+
+    # add other day schedules
     for daily_sched_name, hourly_vals in daily_scheds.items():
         day_sched_obj_name = prefix(daily_sched_name)
 
         aark.ep.sched.add_day_obj(idf, day_sched_obj_name, val_type, hourly_vals)
 
-    # add week schedules
+    # add other week schedules
     for weekly_sched_name, day2sched_name in weekly_scheds.items():
         week_sched_obj_name = prefix(weekly_sched_name)
 
         day_type2obj_name = {}
         for day_type in DAY_TYPES:
-            if day_type in ("SummerDesignDay", "WinterDesignDay"):
-                # use the holiday profile for design days
-                # TODO: refine profile for design days
-                day_type2obj_name[day_type] = prefix(day2sched_name["Holiday"])
-            elif day_type in ("CustomDay1", "CustomDay2"):
-                # use the inactive profile for custom days
-                day_type2obj_name[day_type] = inactive_day_sched_obj_name
+            if day_type in special_day_type2sched_obj_name:
+                day_type2obj_name[day_type] = special_day_type2sched_obj_name[day_type]
             else:
                 day_type2obj_name[day_type] = prefix(day2sched_name[day_type])
 
@@ -192,15 +233,17 @@ def add_scheds(
     year_sched_obj_name = prefix(annual_sched_name)
     weekly_sched_endpoints = annual_scheds[annual_sched_name]
 
-    week_sched_endpoints = mask_endpoints(
-        [
-            (end_month_day, prefix(weekly_sched_name))
-            for end_month_day, weekly_sched_name in weekly_sched_endpoints
-        ],
-        inactive_week_sched_obj_name,
-        start_month_day,
-        end_month_day,
-    )
+    week_sched_endpoints = [
+        (end_month_day, prefix(weekly_sched_name))
+        for end_month_day, weekly_sched_name in weekly_sched_endpoints
+    ]
+    if val_type != "Temperature":
+        week_sched_endpoints = mask_endpoints(
+            week_sched_endpoints,
+            inactive_week_sched_obj_name,
+            start_month_day,
+            end_month_day,
+        )
     year_sched_blocks = expand_endpoints(week_sched_endpoints)
     aark.ep.sched.add_year_obj(idf, year_sched_obj_name, val_type, *year_sched_blocks)
 
@@ -245,7 +288,7 @@ def validate_zone_map(idf: IDF, zone_map: ActivityMap) -> None:
 
 
 def _validate_endpoints(endpoints: Sequence[tuple[MonthDay, str]]) -> None:
-    """Validate unique whole-year endpoints with non-empty values."""
+    """Validate unique full-year endpoints with non-empty values."""
     vals = {val for _, val in endpoints}
     end_month_days = {month_day for month_day, _ in endpoints}
 

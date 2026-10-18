@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from aark.ncm._utils import ActivityMap
 
 
-def _add_setpoint_scheds(idf: IDF, setpoint_sched_name: str) -> None:
+def _add_setpoint_scheds(idf: IDF, setpoint_sched_name: str, setpoint: str) -> None:
     """Add setpoint schedules to the IDF."""
     # get ncm data
     daily_scheds, weekly_scheds, annual_scheds = ACTIVITY_DATABASE.get_sched(
@@ -37,6 +37,7 @@ def _add_setpoint_scheds(idf: IDF, setpoint_sched_name: str) -> None:
         "Temperature",
         YEAR_START_MONTH_DAY,
         YEAR_END_MONTH_DAY,
+        setpoint,
     )
 
 
@@ -46,6 +47,7 @@ def _add_avail(
     avail_field_paths: Sequence[tuple[str, str, str]],
     start_month_day: MonthDay,
     end_month_day: MonthDay,
+    design_day_type: str,
 ) -> None:
     """Add an availability schedule and assign it to the specified fields."""
     # mask availability values outside the active period
@@ -54,10 +56,17 @@ def _add_avail(
     )
 
     # build the compact availability schedule
+    special_day_profiles = []
+    for day_type in ("SummerDesignDay", "WinterDesignDay", "CustomDay1", "CustomDay2"):
+        val = "1" if day_type == design_day_type else "0"
+        special_day_profiles.append((day_type, (val,) * 24))
+
     sched_blocks = []
     for month_day, val in sched_endpoints:
         sched_blocks.append(
-            aark.ep.sched.make_compact_block(month_day, ("AllDays", (val,) * 24))
+            aark.ep.sched.make_compact_block(
+                month_day, *special_day_profiles, ("AllOtherDays", (val,) * 24)
+            )
         )
 
     # add the availability schedule object
@@ -110,7 +119,7 @@ def _add_heating_setpoint(idf: IDF, zone_name: str, activity_name: str) -> None:
 
     # add schedule objects
     aark.ep.sched.add_constant_obj(idf, control_sched_obj_name, "Control", "1")
-    _add_setpoint_scheds(idf, heating["sched_name"])
+    _add_setpoint_scheds(idf, heating["sched_name"], heating["setpoint"])
 
     # add the heating setpoint object
     aark.ep.obj.add(
@@ -140,7 +149,7 @@ def _add_cooling_setpoint(idf: IDF, zone_name: str, activity_name: str) -> None:
 
     # add schedule objects
     aark.ep.sched.add_constant_obj(idf, control_sched_obj_name, "Control", "2")
-    _add_setpoint_scheds(idf, cooling["sched_name"])
+    _add_setpoint_scheds(idf, cooling["sched_name"], cooling["setpoint"])
 
     # add the cooling setpoint object
     aark.ep.obj.add(
@@ -174,8 +183,8 @@ def _add_heating_cooling_setpoint(idf: IDF, zone_name: str, activity_name: str) 
 
     # add schedule objects
     aark.ep.sched.add_constant_obj(idf, control_sched_obj_name, "Control", "4")
-    _add_setpoint_scheds(idf, heating["sched_name"])
-    _add_setpoint_scheds(idf, cooling["sched_name"])
+    _add_setpoint_scheds(idf, heating["sched_name"], heating["setpoint"])
+    _add_setpoint_scheds(idf, cooling["sched_name"], cooling["setpoint"])
 
     # add the dual setpoint object
     aark.ep.obj.add(
@@ -231,9 +240,11 @@ def apply(
         `bedroom_2` and `lounge` have both.
     heating_start_month_day, heating_end_month_day : MonthDay, optional
         Inclusive heating availability period as `(month, day)` pairs, defaulting
-        to the whole year. A start after the end spans New Year.
+        to the full year. A start after the end spans New Year. For design and
+        custom days, see 'Notes'.
     cooling_start_month_day, cooling_end_month_day : MonthDay, optional
         Cooling availability period, with the same conventions as heating.
+        For design and custom days, see 'Notes'.
     heating_avail_field_paths, cooling_avail_field_paths : Sequence[tuple[str, str, str]], optional
         Paths to heating and cooling availability fields to update, given as
         `(class_name, object_name, field_name)` tuples. For example:
@@ -243,6 +254,18 @@ def apply(
             ("AvailabilityManager:Scheduled", "Heating Manager", "Schedule Name"),
         ]
         ```
+
+    Notes
+    -----
+    Design and custom days use the following constant values, independently of
+    the specified availability periods.
+
+    | Profile              | Winter design day | Summer design day | Custom days    |
+    | -------------------- | ----------------- | ----------------- | -------------- |
+    | Heating setpoint     | Activity value    | Activity value    | Activity value |
+    | Cooling setpoint     | Activity value    | Activity value    | Activity value |
+    | Heating availability | On                | Off               | Off            |
+    | Cooling availability | Off               | On                | Off            |
     """
     # validate aark requirements
     aark.ep._pact.validate_ep_ver(idf)
@@ -292,6 +315,7 @@ def apply(
             heating_avail_field_paths,
             heating_start_month_day,
             heating_end_month_day,
+            "WinterDesignDay",
         )
 
     # add cooling availability
@@ -302,6 +326,7 @@ def apply(
             cooling_avail_field_paths,
             cooling_start_month_day,
             cooling_end_month_day,
+            "SummerDesignDay",
         )
 
 

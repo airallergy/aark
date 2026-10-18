@@ -58,6 +58,14 @@ DAY_TYPES = (
 )
 
 
+def get_active_val(val_type: str) -> str:
+    """Return a conventional active schedule value."""
+    if val_type in {"Fraction", "On/Off"}:
+        return VAL_TYPE2LIMITS[val_type]["Upper_Limit_Value"]
+
+    raise ValueError(f"Unsupported schedule value type: {val_type}.")
+
+
 def get_inactive_val(val_type: str, sub_val_type: str = "") -> str:
     """Return a conventional inactive schedule value."""
     if val_type == "Temperature":

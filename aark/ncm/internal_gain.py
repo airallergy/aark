@@ -174,14 +174,21 @@ def apply(
         Lighting luminous efficacy in lm W-1. Power density is
         `LIGHTING_LUX / luminous_efficacy`, assuming utilisation and
         maintenance factors of one.
-    start_month_day, end_month_day : MonthDay
+    start_month_day, end_month_day : MonthDay, optional
         Inclusive active period as `(month, day)` pairs, defaulting to the whole
-        year. A start after the end spans New Year. Gains are zero outside it.
+        year. A start after the end spans New Year. For design and custom days,
+        see 'Notes'.
 
     Notes
     -----
-    Identical objects are reused. Conflicting objects raise without rolling
-    back preceding additions.
+    Design and custom days use the following constant values, independently of
+    the active period.
+
+    | Profile   | Winter design day | Summer design day | Custom days |
+    | --------- | ----------------- | ----------------- | ----------- |
+    | Occupancy | Zero              | Full              | Zero        |
+    | Lighting  | Zero              | Full              | Zero        |
+    | Equipment | Zero              | Full              | Zero        |
     """
     # validate aark requirements
     aark.ep._pact.validate_ep_ver(idf)
