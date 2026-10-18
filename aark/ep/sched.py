@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
     from eppy.modeleditor import IDF
 
-    from aark._utils import MonthDay
+    from aark._utils import Interval, MonthDay
 
 
 VAL_TYPE2LIMITS = {
@@ -147,7 +147,7 @@ def add_week_obj(idf: IDF, obj_name: str, **day_type2obj_name: str) -> None:
 
 
 def add_year_obj(
-    idf: IDF, obj_name: str, val_type: str, *blocks: tuple[MonthDay, MonthDay, str]
+    idf: IDF, obj_name: str, val_type: str, *blocks: Interval[str]
 ) -> None:
     """Add a `Schedule:Year` object if it is absent."""
     # add the schedule type limits object

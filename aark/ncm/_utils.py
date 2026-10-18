@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from eppy.modeleditor import IDF
 
-    from aark._utils import MonthDay
+    from aark._utils import Endpoint, MonthDay
     from aark.ncm.data.activity import AnnualScheds, DailyScheds, WeeklyScheds
 
     type ActivityMap = Mapping[str, Sequence[str]]
@@ -53,13 +53,13 @@ def sched_uid(sched_type: str, activity_name: str = "") -> str:
 
 
 def mask_endpoints(
-    endpoints: Sequence[tuple[MonthDay, str]],
+    endpoints: Sequence[Endpoint[str]],
     inactive_val: str,
     start_month_day: MonthDay,
     end_month_day: MonthDay,
-) -> list[tuple[MonthDay, str]]:
+) -> list[Endpoint[str]]:
     """Order full-year endpoints and replace items outside the active period."""
-    _validate_endpoints(endpoints)
+    _validate_endpoints(*endpoints)
 
     endpoints = list(endpoints)
 
@@ -98,24 +98,6 @@ def mask_endpoints(
         masked_endpoints.append((month_day, val if active else inactive_val))
 
     return masked_endpoints
-
-
-def expand_endpoints(
-    endpoints: Sequence[tuple[MonthDay, str]],
-) -> list[tuple[MonthDay, MonthDay, str]]:
-    """Expand full-year endpoints into inclusive intervals from 1 January."""
-    _validate_endpoints(endpoints)
-
-    start_date = aark._utils.as_date(YEAR_START_MONTH_DAY)
-
-    intervals = []
-    for end_month_day, val in sorted(endpoints, key=lambda x: x[0]):
-        end_date = aark._utils.as_date(end_month_day)
-
-        intervals.append(((start_date.month, start_date.day), end_month_day, val))
-        start_date = end_date + dt.timedelta(days=1)
-
-    return intervals
 
 
 def add_scheds(
@@ -244,7 +226,7 @@ def add_scheds(
             start_month_day,
             end_month_day,
         )
-    year_sched_blocks = expand_endpoints(week_sched_endpoints)
+    year_sched_blocks = aark._utils.expand_endpoints(week_sched_endpoints)
     aark.ep.sched.add_year_obj(idf, year_sched_obj_name, val_type, *year_sched_blocks)
 
 
@@ -287,19 +269,11 @@ def validate_zone_map(idf: IDF, zone_map: ActivityMap) -> None:
     aark.ep.obj.validate_obj_names(idf, "Zone", *zone_names)
 
 
-def _validate_endpoints(endpoints: Sequence[tuple[MonthDay, str]]) -> None:
+def _validate_endpoints(*endpoints: Endpoint[str]) -> None:
     """Validate unique full-year endpoints with non-empty values."""
-    vals = {val for _, val in endpoints}
-    end_month_days = {month_day for month_day, _ in endpoints}
+    # endpoints must be unique and include 31 december
+    aark._utils.validate_endpoints(*endpoints)
 
     # endpoint values must be non-empty
-    if "" in vals:
+    if "" in {val for _, val in endpoints}:
         raise ValueError(f"Endpoint value cannot be empty string: {endpoints}.")
-
-    # endpoint month-day pairs must be unique
-    if len(end_month_days) != len(endpoints):
-        raise ValueError(f"Duplicate endpoint month-day pairs: {endpoints}.")
-
-    # endpoints must include 31 december
-    if YEAR_END_MONTH_DAY not in end_month_days:
-        raise ValueError(f"Missing (12, 31) endpoint: {endpoints}.")

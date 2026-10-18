@@ -11,11 +11,11 @@ if TYPE_CHECKING:
 
     import pyodbc
 
-    from aark._utils import MonthDay
+    from aark._utils import Endpoint
 
     type DailyScheds = dict[str, tuple[str, ...]]
     type WeeklyScheds = dict[str, dict[str, str]]
-    type AnnualScheds = dict[str, tuple[tuple[MonthDay, str], ...]]
+    type AnnualScheds = dict[str, tuple[Endpoint[str], ...]]
 
 
 DAY_TYPES = (*DAY_NAMES[1:], "Holiday")
