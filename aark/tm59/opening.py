@@ -1,16 +1,16 @@
-"""TM59:2017 Section 3.3 window and door openings."""
+"""TM59:2017 Section 3.3 and ADO:2021 Paragraph 2.6 window and door openings."""
 
 from typing import TYPE_CHECKING
 
 import aark._utils
 import aark.ep._pact
 import aark.ep.afn
+import aark.ep.ems
 import aark.ep.field
 import aark.ep.obj
 import aark.ep.sched
 import aark.tm59._utils
 from aark._utils import YEAR_END_MONTH_DAY, YEAR_START_MONTH_DAY
-from aark.ep.field import MAX_EP_STR_FIELD_LEN
 from aark.tm59.data import (
     AWAKE_END_HOUR,
     AWAKE_START_HOUR,
@@ -29,15 +29,16 @@ if TYPE_CHECKING:
     from aark.tm59._utils import RoomMap
 
 
-def _get_window_avail_hourly_factors(
-    room_type: str, asleep_closed: bool
-) -> tuple[str, ...]:
-    """Get hourly window availability factors.
+_ADO_DAY_VENT_MIN_THRESHOLD = WINDOW_OPENING_THRESHOLD
+_ADO_DAY_VENT_MAX_THRESHOLD = 26  # °C
+_ADO_NIGHT_VENT_THRESHOLD = 23  # °C
 
-    When `asleep_closed` is `True`, available sleeping hours become unavailable.
-    This affects bedrooms and studios; other rooms are already unavailable
-    during sleeping hours under their occupancy profiles.
-    """
+
+def _get_window_avail_hourly_factors(
+    room_type: str, asleep_closed: bool, ado: bool
+) -> tuple[str, ...]:
+    """Get hourly window availability factors."""
+    # default availability follows occupancy
     occupancy_hourly_factors = INTERNAL_GAIN_PROFILES.get_hourly_factors(
         "occupancy", room_type
     )
@@ -46,8 +47,15 @@ def _get_window_avail_hourly_factors(
     )
 
     if asleep_closed:
+        # keep windows unavailable during sleeping hours
         hourly_factors = tuple(
             factor if AWAKE_START_HOUR <= hour < AWAKE_END_HOUR else "0"
+            for hour, factor in enumerate(hourly_factors)
+        )
+    elif ado:
+        # allow opening during sleeping hours regardless of occupancy
+        hourly_factors = tuple(
+            factor if AWAKE_START_HOUR <= hour < AWAKE_END_HOUR else "1"
             for hour, factor in enumerate(hourly_factors)
         )
 
@@ -66,37 +74,24 @@ def _get_door_avail_hourly_factors(awake_closed: bool) -> tuple[str, ...]:
     return hourly_factors
 
 
-def _add_program_to_calling_manager(idf: IDF, program_obj_name: str) -> None:
-    """Add a program to the model-level window program calling manager."""
-    calling_manager_cls_name = "EnergyManagementSystem:ProgramCallingManager"
-    calling_manager_obj_name = aark.tm59._utils.prefix("window_vent")
-    calling_point = "BeginTimestepBeforePredictor"
+def _add_ado_night_flag(idf: IDF, zone_name: str, night_vent_flag_name: str) -> None:
+    """Add an ADO night ventilation flag and its initialiser."""
+    init_program_obj_name = aark.tm59._utils.erl_uid("night_vent_flag_init", zone_name)
+    init_calling_manager_obj_name = aark.tm59._utils.prefix("night_vent_init_manager")
 
-    if aark.ep.obj.has_named(idf, calling_manager_cls_name, calling_manager_obj_name):
-        calling_manager_obj = aark.ep.obj.get_named(
-            idf, calling_manager_cls_name, calling_manager_obj_name
-        )
+    aark.ep.obj.add(
+        idf,
+        "EnergyManagementSystem:GlobalVariable",
+        Erl_Variable_1_Name=night_vent_flag_name,
+    )
 
-        if calling_manager_obj.EnergyPlus_Model_Calling_Point != calling_point:
-            raise ValueError(
-                f"Program calling manager exists at a different calling point: {calling_manager_obj.EnergyPlus_Model_Calling_Point}."
-            )
+    aark.ep.ems.add_program(
+        idf, init_program_obj_name, f"SET {night_vent_flag_name} = 0"
+    )
 
-        aark.ep.obj.rstrip(calling_manager_obj)
-        n_programs = len(calling_manager_obj.fieldvalues) - 3
-        if not any(
-            calling_manager_obj[f"Program_Name_{i}"] == program_obj_name
-            for i in range(1, n_programs + 1)
-        ):
-            calling_manager_obj[f"Program_Name_{n_programs + 1}"] = program_obj_name
-    else:
-        aark.ep.obj.add(
-            idf,
-            calling_manager_cls_name,
-            Name=calling_manager_obj_name,
-            EnergyPlus_Model_Calling_Point=calling_point,
-            Program_Name_1=program_obj_name,
-        )
+    aark.ep.ems.add_program_to_calling_manager(
+        idf, init_calling_manager_obj_name, "BeginNewEnvironment", init_program_obj_name
+    )
 
 
 def _add_window(
@@ -104,9 +99,10 @@ def _add_window(
     afn_surface_obj: EpBunch,
     zone_name: str,
     room_type: str,
+    asleep_closed: bool,
+    ado: bool,
     start_month_day: MonthDay,
     end_month_day: MonthDay,
-    asleep_closed: bool,
 ) -> None:
     """Add control for the window."""
     window_name = afn_surface_obj.Surface_Name
@@ -115,6 +111,10 @@ def _add_window(
     Ta_sensor_obj_name = aark.tm59._utils.erl_uid("Ta", zone_name)
     actuator_obj_name = aark.tm59._utils.erl_uid("vent_factor", window_name)
     program_obj_name = aark.tm59._utils.erl_uid("vent", window_name)
+
+    if ado:
+        avail_sched_obj_name += "_ado"
+        avail_sensor_obj_name += "_ado"
 
     if asleep_closed:
         avail_sched_obj_name += "_asleep_closed"
@@ -126,26 +126,53 @@ def _add_window(
         afn_surface_obj,
         "WindowDoor_Opening_Factor_or_Crack_Factor",
     )
-    program_lines = (
-        f"IF {avail_sensor_obj_name} > 0",
-        f"IF {Ta_sensor_obj_name} > {WINDOW_OPENING_THRESHOLD}",
-        f"SET {actuator_obj_name} = {max_vent_factor}",
-        "ELSE",
-        f"SET {actuator_obj_name} = 0",
-        "ENDIF",
-        "ELSE",
-        f"SET {actuator_obj_name} = 0",
-        "ENDIF",
-    )
 
-    for line in program_lines:
-        if len(line) > MAX_EP_STR_FIELD_LEN:
-            raise ValueError(
-                f"EMS program line exceeds {MAX_EP_STR_FIELD_LEN} characters: {line}."
-            )
+    if ado:
+        night_vent_flag_name = aark.tm59._utils.erl_uid("night_vent_flag", zone_name)
+        _add_ado_night_flag(idf, zone_name, night_vent_flag_name)
+
+        program_lines = [
+            f"IF (Hour == {AWAKE_END_HOUR}) && (TimeStepNum == 1)",
+            f"IF {Ta_sensor_obj_name} > {_ADO_NIGHT_VENT_THRESHOLD}",
+            f"SET {night_vent_flag_name} = 1",
+            "ELSE",
+            f"SET {night_vent_flag_name} = 0",
+            "ENDIF",
+            "ENDIF",
+            f"IF {avail_sensor_obj_name} > 0",
+            f"IF (Hour >= {AWAKE_END_HOUR}) || (Hour < {AWAKE_START_HOUR})",
+            f"SET vent_frac = {night_vent_flag_name}",
+            "ELSE",
+            f"IF {Ta_sensor_obj_name} > {_ADO_DAY_VENT_MAX_THRESHOLD}",
+            "SET vent_frac = 1",
+            f"ELSEIF {Ta_sensor_obj_name} <= {_ADO_DAY_VENT_MIN_THRESHOLD}",
+            "SET vent_frac = 0",
+            "ELSE",
+            f"SET vent_frac = ({Ta_sensor_obj_name} - {_ADO_DAY_VENT_MIN_THRESHOLD}) / {_ADO_DAY_VENT_MAX_THRESHOLD - _ADO_DAY_VENT_MIN_THRESHOLD}",
+            "ENDIF",
+            "ENDIF",
+            "ELSE",
+            "SET vent_frac = 0",
+            "ENDIF",
+            f"SET {actuator_obj_name} = {max_vent_factor} * vent_frac",
+        ]
+    else:
+        program_lines = [
+            f"IF {avail_sensor_obj_name} > 0",
+            f"IF {Ta_sensor_obj_name} > {WINDOW_OPENING_THRESHOLD}",
+            f"SET {actuator_obj_name} = {max_vent_factor}",
+            "ELSE",
+            f"SET {actuator_obj_name} = 0",
+            "ENDIF",
+            "ELSE",
+            f"SET {actuator_obj_name} = 0",
+            "ENDIF",
+        ]
 
     # add the availability schedule
-    avail_hourly_factors = _get_window_avail_hourly_factors(room_type, asleep_closed)
+    avail_hourly_factors = _get_window_avail_hourly_factors(
+        room_type, asleep_closed, ado
+    )
     avail_sched_blocks = aark.tm59._utils.make_compact_blocks(
         avail_hourly_factors, start_month_day, end_month_day
     )
@@ -186,23 +213,22 @@ def _add_window(
     )
 
     # add the program
-    aark.ep.obj.add(
-        idf,
-        "EnergyManagementSystem:Program",
-        Name=program_obj_name,
-        **{f"Program_Line_{i}": line for i, line in enumerate(program_lines, start=1)},
-    )
-
+    aark.ep.ems.add_program(idf, program_obj_name, *program_lines)
     # add the program to the calling manager
-    _add_program_to_calling_manager(idf, program_obj_name)
+    aark.ep.ems.add_program_to_calling_manager(
+        idf,
+        aark.tm59._utils.prefix("window_vent"),
+        "BeginTimestepBeforePredictor",
+        program_obj_name,
+    )
 
 
 def _add_door(
     idf: IDF,
     afn_surface_obj: EpBunch,
+    awake_closed: bool,
     start_month_day: MonthDay,
     end_month_day: MonthDay,
-    awake_closed: bool,
 ) -> None:
     """Add control for the door."""
     sched_obj_name = aark.tm59._utils.prefix("internal_door_avail")
@@ -225,6 +251,7 @@ def _add_door(
 def _apply_external_windows(
     idf: IDF,
     window_map: RoomMap,
+    ado: bool,
     start_month_day: MonthDay,
     end_month_day: MonthDay,
     asleep_closed_windows: Sequence[str],
@@ -248,9 +275,10 @@ def _apply_external_windows(
                 afn_surface_obj,
                 zone_name,
                 room_type,
+                window_name in asleep_closed_windows,
+                ado,
                 start_month_day,
                 end_month_day,
-                window_name in asleep_closed_windows,
             )
 
 
@@ -271,9 +299,9 @@ def _apply_internal_doors(
         _add_door(
             idf,
             afn_surface_obj,
+            door_name in awake_closed_doors,
             start_month_day,
             end_month_day,
-            door_name in awake_closed_doors,
         )
 
 
@@ -281,6 +309,7 @@ def apply(
     idf: IDF,
     window_map: RoomMap,
     doors: Sequence[str],
+    ado: bool = False,
     start_month_day: MonthDay = YEAR_START_MONTH_DAY,
     end_month_day: MonthDay = YEAR_END_MONTH_DAY,
     asleep_closed_windows: Sequence[str] = (),
@@ -322,6 +351,9 @@ def apply(
             "flat_2_bedroom-kitchen_door",
         ]
         ```
+    ado : bool, optional
+        Set `ado=True` to use Approved Document O 2021 window opening controls,
+        defaulting to `False`.
     start_month_day, end_month_day : MonthDay, optional
         Inclusive active period as `(month, day)` pairs, defaulting to the whole year.
         The start must not be after the end. Windows and doors are closed outside this
@@ -337,6 +369,10 @@ def apply(
         closure when occupants are sleeping. By default, listed doors are open from
         08:00 to 23:00 and closed otherwise.
     """
+    # TODO: support closed, secure and maximum opening factors, with
+    #       `0 <= secure_vent_factor <= max_vent_factor`, then add
+    #       `unoccupied_open_windows` for tm59 and ado
+
     # validate aark requirements
     aark.ep._pact.validate_ep_ver(idf)
     aark.ep._pact.validate_no_space(idf)
@@ -349,7 +385,7 @@ def apply(
     aark._utils.validate_month_days(start_month_day, end_month_day)
 
     _apply_external_windows(
-        idf, window_map, start_month_day, end_month_day, asleep_closed_windows
+        idf, window_map, ado, start_month_day, end_month_day, asleep_closed_windows
     )
     _apply_internal_doors(
         idf, doors, start_month_day, end_month_day, awake_closed_doors
