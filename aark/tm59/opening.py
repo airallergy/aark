@@ -292,55 +292,50 @@ def apply(
     -------------------
     EnergyPlus version is 24.1 or later, with no `Space` object.
 
-    Notes
-    -----
-    A key user input is `window_map` with the conceptual type:
+    Parameters
+    ----------
+    idf : IDF
+        IDF to receive window and door opening controls.
+    window_map : RoomMap
+        TM59 habitable room types mapped to names of one or more
+        `FenestrationSurface:Detailed` objects in `idf` representing external windows.
+        The mapping covers the whole model and is not grouped by dwelling. For example:
 
-    ```python
-    dict[str, list[str]]
-    ```
+        ```python
+        window_map = {
+            "living_kitchen": [
+                "flat_1_living_kitchen_window",
+                "flat_2_living_kitchen_patio_door",
+            ],
+            "double_bedroom": [
+                "flat_1_bedroom_window",
+            ],
+        }
+        ```
+    doors : Sequence[str]
+        Names of `FenestrationSurface:Detailed` objects in `idf` representing internal
+        doors. For example:
 
-    Each key is a TM59 habitable room type, and each value is a list of external
-    window names. `window_map` covers the whole model and is not grouped by dwelling.
-    An example of `window_map` is:
-
-    ```python
-    window_map = {
-        "living_kitchen": [
-            "flat_1_living_kitchen_window",
-            "flat_2_living_kitchen_patio_door",
-        ],
-        "double_bedroom": [
-            "flat_1_bedroom_window",
-        ],
-    }
-    ```
-
-    TM59 models windows as open when the room is occupied and its internal dry
-    bulb temperature exceeds 22 °C, subject to opening restrictions. By default,
-    this applies throughout occupied hours, including overnight. Supply window
-    names from `window_map` in `asleep_closed_windows` to keep them closed from
-    23:00 to 08:00.
-
-    Another key user input is `doors` with the conceptual type:
-
-    ```python
-    list[str]
-    ```
-
-    It is a list of internal door names. An example of `doors` is:
-
-    ```python
-    doors = [
-        "flat_1_living-kitchen_door",
-        "flat_2_bedroom-kitchen_door",
-    ]
-    ```
-
-    TM59 allows internal doors to remain open during the day but requires closure
-    when occupants are sleeping. By default, listed doors are open from 08:00 to 23:00
-    and closed otherwise. Supply door names from `doors` in `awake_closed_doors` to
-    keep them closed throughout.
+        ```python
+        doors = [
+            "flat_1_living-kitchen_door",
+            "flat_2_bedroom-kitchen_door",
+        ]
+        ```
+    start_month_day, end_month_day : MonthDay, optional
+        Inclusive active period as `(month, day)` pairs, defaulting to the whole year.
+        The start must not be after the end. Windows and doors are closed outside this
+        period.
+    asleep_closed_windows : Sequence[str], optional
+        Window names from `window_map` to keep closed from 23:00 to 08:00, defaulting to
+        an empty sequence. TM59 models windows as open when the room is occupied and its
+        internal dry bulb temperature exceeds 22 °C, subject to opening restrictions. By
+        default, this applies throughout occupied hours, including overnight.
+    awake_closed_doors : Sequence[str], optional
+        Door names from `doors` to keep closed throughout, defaulting to an empty
+        sequence. TM59 allows internal doors to remain open during the day but requires
+        closure when occupants are sleeping. By default, listed doors are open from
+        08:00 to 23:00 and closed otherwise.
     """
     # validate aark requirements
     aark.ep._pact.validate_ep_ver(idf)

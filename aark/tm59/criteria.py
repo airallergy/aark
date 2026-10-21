@@ -126,7 +126,37 @@ def assess_criterion_a(
 ) -> dict[str, object]:
     """Assess TM59 criterion a.
 
-    Occupied hours exceeding the adaptive limit, from TM52 criterion 1.
+    Occupied hours with operative
+    temperatures exceeding the adaptive limit, from TM52 criterion 1.
+
+    Parameters
+    ----------
+    Top_1d : Iterable[float]
+        Operative temperatures in °C.
+    Trm_1d : Iterable[float]
+        Daily exponentially weighted running mean outdoor air temperatures in °C.
+    occupancy_1d : Iterable[float]
+        Occupancy values corresponding to `Top_1d`.
+    start_month_day, end_month_day : MonthDay
+        Inclusive assessment period as `(month, day)` pairs, within 1 May to 30
+        September. The start must not be after the end.
+    n_hourly_timesteps : int, optional
+        Temporal resolution of `Top_1d` and `occupancy_1d` as the number of values per
+        hour. Defaults to 1 for hourly data.
+    category : int, optional
+        Adaptive comfort category, either 1 or 2, defaulting to 2.
+    awake_only : bool, optional
+        Restrict occupancy to 08:00 to 23:00 when `True`, defaulting to `False`.
+
+    Returns
+    -------
+    dict[str, object]
+        Assessment result containing:
+
+        - `n_exceeded_hours`: assessed hours of exceedance
+        - `n_assessed_hours`: assessed hours
+        - `threshold`: exceedance percentage threshold
+        - `met`: whether the criterion is met
     """
     _validate_category_not_3(category)
 
@@ -162,7 +192,30 @@ def assess_criterion_b(
 ) -> dict[str, object]:
     """Assess TM59 criterion b.
 
-    Hours from 22:00 to 07:00 exceeding 26 °C, from Guide A.
+    Hours from 22:00 to 07:00 with operative temperatures exceeding 26 °C.
+
+    Parameters
+    ----------
+    Top_1d : Iterable[float]
+        Operative temperatures in °C.
+    start_month_day, end_month_day : MonthDay
+        Inclusive assessment period as `(month, day)` pairs, within one calendar year.
+        The start must not be after the end.
+    n_hourly_timesteps : int, optional
+        Temporal resolution of `Top_1d` as the number of values per hour. Defaults to 1
+        for hourly data.
+    is_leap : bool, optional
+        Whether the assessment period falls in a leap year, defaulting to `False`.
+
+    Returns
+    -------
+    dict[str, object]
+        Assessment result containing:
+
+        - `n_exceeded_hours`: assessed hours of exceedance
+        - `n_assessed_hours`: assessed hours
+        - `threshold`: exceedance percentage threshold
+        - `met`: whether the criterion is met
     """
     Top = _parsed_non_adaptive_criterion_args(
         Top_1d, start_month_day, end_month_day, n_hourly_timesteps, is_leap
@@ -187,9 +240,35 @@ def assess_mechanical_vent(
     n_hourly_timesteps: int = 1,
     is_leap: bool = False,
 ) -> dict[str, object]:
-    """Assess TM59 criterion for mechanically ventilated homes.
+    """Assess TM59 criterion for predominantly mechanically ventilated homes.
 
-    Occupied hours exceeding 26 °C, from Guide A.
+    Occupied hours with operative
+    temperatures exceeding 26 °C, from Guide A.
+
+    Parameters
+    ----------
+    Top_1d : Iterable[float]
+        Operative temperatures in °C.
+    occupancy_1d : Iterable[float]
+        Occupancy values corresponding to `Top_1d`.
+    start_month_day, end_month_day : MonthDay
+        Inclusive assessment period as `(month, day)` pairs, within one calendar year.
+        The start must not be after the end.
+    n_hourly_timesteps : int, optional
+        Temporal resolution of `Top_1d` and `occupancy_1d` as the number of values per
+        hour. Defaults to 1 for hourly data.
+    is_leap : bool, optional
+        Whether the assessment period falls in a leap year, defaulting to `False`.
+
+    Returns
+    -------
+    dict[str, object]
+        Assessment result containing:
+
+        - `n_exceeded_hours`: assessed hours of exceedance
+        - `n_assessed_hours`: assessed hours
+        - `threshold`: exceedance percentage threshold
+        - `met`: whether the criterion is met
     """
     Top = _parsed_non_adaptive_criterion_args(
         Top_1d, start_month_day, end_month_day, n_hourly_timesteps, is_leap
@@ -221,7 +300,31 @@ def assess_communal_corridor(
 ) -> dict[str, object]:
     """Assess TM59 criterion for communal corridors.
 
-    Hours exceeding 28 °C.
+    Hours with operative
+    temperatures exceeding 28 °C.
+
+    Parameters
+    ----------
+    Top_1d : Iterable[float]
+        Operative temperatures in °C.
+    start_month_day, end_month_day : MonthDay
+        Inclusive assessment period as `(month, day)` pairs, within one calendar year.
+        The start must not be after the end.
+    n_hourly_timesteps : int, optional
+        Temporal resolution of `Top_1d` as the number of values per hour. Defaults to 1
+        for hourly data.
+    is_leap : bool, optional
+        Whether the assessment period falls in a leap year, defaulting to `False`.
+
+    Returns
+    -------
+    dict[str, object]
+        Assessment result containing:
+
+        - `n_exceeded_hours`: assessed hours of exceedance
+        - `n_assessed_hours`: assessed hours
+        - `threshold`: exceedance percentage threshold
+        - `met`: whether the criterion is met
     """
     Top = _parsed_non_adaptive_criterion_args(
         Top_1d, start_month_day, end_month_day, n_hourly_timesteps, is_leap
@@ -241,7 +344,13 @@ def assess_communal_corridor(
 
 
 def apply_outputs(idf: IDF) -> None:
-    """Add the EnergyPlus outputs required to assess the TM59 criteria."""
+    """Add the EnergyPlus outputs required to assess the TM59 criteria.
+
+    Parameters
+    ----------
+    idf : IDF
+        IDF to receive hourly operative temperature and occupant count outputs.
+    """
     aark.tm52.criteria.apply_outputs(idf)
 
 

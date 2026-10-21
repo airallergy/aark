@@ -98,6 +98,33 @@ def assess_criterion_1(
     """Assess TM52 criterion 1.
 
     Hours of exceedance.
+
+    Parameters
+    ----------
+    Top_1d : Iterable[float]
+        Operative temperatures in °C.
+    Trm_1d : Iterable[float]
+        Daily exponentially weighted running mean outdoor air temperatures in °C.
+    occupancy_1d : Iterable[float]
+        Occupancy values corresponding to `Top_1d`.
+    start_month_day, end_month_day : MonthDay
+        Inclusive assessment period as `(month, day)` pairs, within 1 May to 30
+        September. The start must not be after the end.
+    n_hourly_timesteps : int, optional
+        Temporal resolution of `Top_1d` and `occupancy_1d` as the number of values per
+        hour. Defaults to 1 for hourly data.
+    category : int, optional
+        Adaptive comfort category, either 1, 2 or 3, defaulting to 2.
+
+    Returns
+    -------
+    dict[str, object]
+        Assessment result containing:
+
+        - `n_exceeded_hours`: assessed hours of exceedance
+        - `n_assessed_hours`: assessed hours
+        - `threshold`: exceedance percentage threshold
+        - `met`: whether the criterion is met
     """
     dT, occupied, n_hourly_timesteps = _parsed_criterion_args(
         Top_1d,
@@ -142,6 +169,32 @@ def assess_criterion_2(
     """Assess TM52 criterion 2.
 
     Daily weighted exceedance.
+
+    Parameters
+    ----------
+    Top_1d : Iterable[float]
+        Operative temperatures in °C.
+    Trm_1d : Iterable[float]
+        Daily exponentially weighted running mean outdoor air temperatures in °C.
+    occupancy_1d : Iterable[float]
+        Occupancy values corresponding to `Top_1d`.
+    start_month_day, end_month_day : MonthDay
+        Inclusive assessment period as `(month, day)` pairs, within 1 May to 30
+        September. The start must not be after the end.
+    n_hourly_timesteps : int, optional
+        Temporal resolution of `Top_1d` and `occupancy_1d` as the number of values per
+        hour. Defaults to 1 for hourly data.
+    category : int, optional
+        Adaptive comfort category, either 1, 2 or 3, defaulting to 2.
+
+    Returns
+    -------
+    dict[str, object]
+        Assessment result containing:
+
+        - `max_daily_degree_hours`: maximum daily weighted exceedance in K h
+        - `threshold`: daily weighted exceedance threshold in K h
+        - `met`: whether the criterion is met
     """
     dT, occupied, n_hourly_timesteps = _parsed_criterion_args(
         Top_1d,
@@ -181,6 +234,33 @@ def assess_criterion_3(
     """Assess TM52 criterion 3.
 
     Upper limit temperature.
+
+    Parameters
+    ----------
+    Top_1d : Iterable[float]
+        Operative temperatures in °C.
+    Trm_1d : Iterable[float]
+        Daily exponentially weighted running mean outdoor air temperatures in °C.
+    occupancy_1d : Iterable[float]
+        Occupancy values corresponding to `Top_1d`.
+    start_month_day, end_month_day : MonthDay
+        Inclusive assessment period as `(month, day)` pairs, within 1 May to 30
+        September. The start must not be after the end.
+    n_hourly_timesteps : int, optional
+        Temporal resolution of `Top_1d` and `occupancy_1d` as the number of values per
+        hour. Defaults to 1 for hourly data.
+    category : int, optional
+        Adaptive comfort category, either 1, 2 or 3, defaulting to 2.
+
+    Returns
+    -------
+    dict[str, object]
+        Assessment result containing:
+
+        - `max_exceedance`: maximum operative temperature exceedance during occupied
+          hours in K
+        - `threshold`: exceedance threshold in K
+        - `met`: whether the criterion is met
     """
     dT, occupied, _ = _parsed_criterion_args(
         Top_1d,
@@ -211,7 +291,13 @@ def assess_criterion_3(
 
 
 def apply_outputs(idf: IDF) -> None:
-    """Add the EnergyPlus outputs required to assess the TM52 criteria."""
+    """Add the EnergyPlus outputs required to assess the TM52 criteria.
+
+    Parameters
+    ----------
+    idf : IDF
+        IDF to receive hourly operative temperature and occupant count outputs.
+    """
     for var_name in OUTPUT_VAR_NAMES:
         aark.ep.obj.add(
             idf,

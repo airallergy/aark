@@ -15,9 +15,16 @@ if TYPE_CHECKING:
 def calc_Trm(Tod_1d: Iterable[float]) -> FloatArr1D:
     """Calculate daily exponentially weighted running mean temperature.
 
-    `Tod_1d` must contain a complete year of daily mean outdoor air temperatures. The
-    final seven days are treated as the days preceding 1 January when initialising
-    `Trm`.
+    Parameters
+    ----------
+    Tod_1d : Iterable[float]
+        A full year of daily mean outdoor air temperatures in °C. The final seven days
+        are treated as the days preceding 1 January when initialising `Trm`.
+
+    Returns
+    -------
+    FloatArr1D
+        Daily exponentially weighted running mean outdoor air temperatures in °C.
 
     Notes
     -----

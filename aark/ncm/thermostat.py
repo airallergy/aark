@@ -221,9 +221,9 @@ def apply(
     idf : IDF
         IDF to receive thermostats.
     heating_zone_map, cooling_zone_map : ActivityMap or None, optional
-        Activity names mapped to one or more zones to heat or cool. At least
-        one map must be non-empty, and zones in both maps must have the same
-        activity assignment. For example:
+        NCM activity names mapped to names of one or more `Zone` objects in `idf` to
+        heat or cool. At least one map must be non-empty, and zones in both maps must
+        have the same activity assignment. For example:
 
         ```python
         heating_zone_map = {
@@ -239,14 +239,14 @@ def apply(
         Here, `bedroom_1` has heating only, `bedroom_3` has cooling only, and
         `bedroom_2` and `lounge` have both.
     heating_start_month_day, heating_end_month_day : MonthDay, optional
-        Inclusive heating availability period as `(month, day)` pairs, defaulting
-        to the full year. A start after the end spans New Year. For design and
-        custom days, see 'Notes'.
+        Inclusive heating availability period as `(month, day)` pairs, defaulting to the
+        full year. A start after the end spans New Year. For design and custom days, see
+        'Notes'.
     cooling_start_month_day, cooling_end_month_day : MonthDay, optional
-        Cooling availability period, with the same conventions as heating.
-        For design and custom days, see 'Notes'.
+        Cooling availability period, with the same conventions as heating. For design
+        and custom days, see 'Notes'.
     heating_avail_field_paths, cooling_avail_field_paths : Sequence[tuple[str, str, str]], optional
-        Paths to heating and cooling availability fields to update, given as
+        Paths to heating and cooling availability fields in `idf`, given as
         `(class_name, object_name, field_name)` tuples. For example:
 
         ```python

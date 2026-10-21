@@ -162,7 +162,8 @@ def apply(
     idf : IDF
         IDF to receive internal gain profiles.
     zone_map : ActivityMap
-        Activity names mapped to one or more zone names, for example:
+        NCM activity names mapped to names of one or more `Zone` objects in `idf`. For
+        example:
 
         ```python
         {
@@ -171,13 +172,11 @@ def apply(
         }
         ```
     luminous_efficacy : float
-        Lighting luminous efficacy in lm W-1. Power density is
-        `LIGHTING_LUX / luminous_efficacy`, assuming utilisation and
-        maintenance factors of one.
+        Lighting luminous efficacy in lm W-1. Power density is `LIGHTING_LUX /
+        luminous_efficacy`, assuming utilisation and maintenance factors of one.
     start_month_day, end_month_day : MonthDay, optional
-        Inclusive active period as `(month, day)` pairs, defaulting to the whole
-        year. A start after the end spans New Year. For design and custom days,
-        see 'Notes'.
+        Inclusive active period as `(month, day)` pairs, defaulting to the whole year. A
+        start after the end spans New Year. For design and custom days, see 'Notes'.
 
     Notes
     -----

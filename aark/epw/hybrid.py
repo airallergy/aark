@@ -18,16 +18,15 @@ def splice(*endpoints: Endpoint[TextIO]) -> list[str]:
 
     Parameters
     ----------
-    endpoints
-        `(end_month_day, f)` pairs with inclusive `(month, day)` endpoints and
-        seekable text handles. Endpoints must be unique
-        and include 31 December.
+    *endpoints : Endpoint[TextIO]
+        `(end_month_day, f)` pairs with inclusive `(month, day)` endpoints and seekable
+        text handles. Endpoints must be unique and include 31 December.
 
     Returns
     -------
     list[str]
-        The first supplied file's header with updated comments, followed by
-        unchanged selected records in calendar order, including line endings.
+        The first supplied file's header with updated comments, followed by unchanged
+        selected records in calendar order, including line endings.
     """
     # validate aark requirements
     for _, f in endpoints:

@@ -656,108 +656,100 @@ def apply(
     EnergyPlus version is 24.1 or later, with no `Space` object or AirflowNetwork
     objects.
 
-    Notes
-    -----
-    Both `air_leakage_records` and `wind_pressure_coeff_records` have the
-    conceptual type:
+    Parameters
+    ----------
+    idf : IDF
+        IDF to receive the tested air leakage.
+    air_leakage_records : Sequence[AirflowRecord]
+        Records for independently tested dwellings. Each record contains the dwelling's
+        air leakage in m3 h-1 @ 50 Pa, airflow exponent, allocation surfaces, one side
+        of each reciprocal internal-door pair and optional ambient doors.
+        `allocation_surfaces` contains names of `BuildingSurface:Detailed` objects in
+        `idf`. `internal_doors` and `ambient_doors` contain names of
+        `FenestrationSurface:Detailed` objects in `idf`. For example:
 
-    ```python
-    list[dict[str, str | list[str]]]
-    ```
+        ```python
+        air_leakage_records = [
+            {
+                "air_leakage": "120",
+                "airflow_exponent": "0.65",
+                "allocation_surfaces": [
+                    "flat_1_north_wall",
+                    "flat_1_hall_bedroom_wall",
+                    "flat_1_hall_living_wall",
+                    "flat_1_to_flat_2_wall",
+                    "flat_1_to_corridor_wall",
+                ],
+                "internal_doors": ["flat_1_hall_bedroom_door", "flat_1_hall_living_door"],
+            },
+            {
+                "air_leakage": "105",
+                "airflow_exponent": "0.64",
+                "allocation_surfaces": [
+                    "flat_2_south_wall",
+                    "flat_2_hall_bedroom_wall",
+                    "flat_2_to_flat_1_wall",
+                ],
+                "internal_doors": ["flat_2_hall_bedroom_door"],
+                "ambient_doors": ["flat_2_store_door"],
+            },
+        ]
+        ```
 
-    Each `air_leakage_record` represents one independently tested dwelling and
-    contains its air leakage in m3 h-1 @ 50 Pa, airflow exponent, allocation surfaces,
-    one side of each reciprocal internal-door pair and optional ambient doors. For
-    example:
+        The optional `ambient_doors` key lists the names of external doors serving
+        garages or external stores thermally attached to the dwelling represented by the
+        record. The outer surfaces of each space are excluded from the building envelope
+        area calculation, and the space lies outside the tested internal volume. The
+        fabric it shares with the dwelling is included in `allocation_surfaces`. These
+        doors can complete the AirflowNetwork paths for the corresponding zones, each of
+        which requires at least two paths.
+    wind_pressure_coeff_records : Sequence[AirflowRecord]
+        Wind pressure coefficient records covering all outdoor allocation surfaces and
+        the parent surfaces of all ambient doors. Each record provides a name, between 2
+        and 36 strictly ascending symmetric relative wind angles from 0° to 180°, one
+        coefficient per angle, the external surfaces to which it applies and a reference
+        height. All records must use the same angle sequence. `external_surfaces`
+        contains names of `BuildingSurface:Detailed` objects in `idf`. For example:
 
-    ```python
-    air_leakage_records = [
-        {
-            "air_leakage": "120",
-            "airflow_exponent": "0.65",
-            "allocation_surfaces": [
-                "flat_1_north_wall",
-                "flat_1_hall_bedroom_wall",
-                "flat_1_hall_living_wall",
-                "flat_1_to_flat_2_wall",
-                "flat_1_to_corridor_wall",
-            ],
-            "internal_doors": ["flat_1_hall_bedroom_door", "flat_1_hall_living_door"],
-        },
-        {
-            "air_leakage": "105",
-            "airflow_exponent": "0.64",
-            "allocation_surfaces": [
-                "flat_2_south_wall",
-                "flat_2_hall_bedroom_wall",
-                "flat_2_to_flat_1_wall",
-            ],
-            "internal_doors": ["flat_2_hall_bedroom_door"],
-            "ambient_doors": ["flat_2_store_door"],
-        },
-    ]
-    ```
+        ```python
+        wind_pressure_coeff_records = [
+            {
+                "name": "wall_floor_0",
+                "ref_height": "10",
+                "angles": ["0", "45", "90", "135", "180"],
+                "coeffs": ["0.106", "0.042", "-0.145", "-0.148", "-0.084"],
+                "external_surfaces": ["flat_1_north_wall", "flat_1_south_wall"],
+            },
+            {
+                "name": "roof_floor_4",
+                "ref_height": "10",
+                "angles": ["0", "45", "90", "135", "180"],
+                "coeffs": ["-0.219"] * 5,
+                "external_surfaces": ["flat_9_roof"],
+            },
+        ]
+        ```
+    airflow_tables : Mapping[str, ParamTable]
+        Door types mapped to airflow parameters for the internal or ambient doors listed
+        in `air_leakage_records`. The `ambient_door` key may be omitted when none of the
+        records contains an `ambient_doors` key. For example:
 
-    The optional `ambient_doors` key lists the names of external doors serving garages
-    or external stores thermally attached to the dwelling represented by the record.
-    The outer surfaces of each space are excluded from the building envelope area
-    calculation, and the space lies outside the tested internal volume. The fabric it
-    shares with the dwelling is included in `allocation_surfaces`. These doors can
-    complete the AirflowNetwork paths for the corresponding zones, each of which
-    requires at least two paths.
-
-    The records in `wind_pressure_coeff_records` collectively cover all outdoor
-    allocation surfaces and the parent surfaces of all ambient doors. Each record
-    provides a name, between 2 and 36 strictly ascending symmetric relative wind
-    angles from 0° to 180°, one coefficient per angle, the external surfaces to which
-    it applies and a reference height. All records must use the same angle sequence.
-    For example:
-
-    ```python
-    wind_pressure_coeff_records = [
-        {
-            "name": "wall_floor_0",
-            "ref_height": "10",
-            "angles": ["0", "45", "90", "135", "180"],
-            "coeffs": ["0.106", "0.042", "-0.145", "-0.148", "-0.084"],
-            "external_surfaces": ["flat_1_north_wall", "flat_1_south_wall"],
-        },
-        {
-            "name": "roof_floor_4",
-            "ref_height": "10",
-            "angles": ["0", "45", "90", "135", "180"],
-            "coeffs": ["-0.219"] * 5,
-            "external_surfaces": ["flat_9_roof"],
-        },
-    ]
-    ```
-
-    `airflow_tables` has the conceptual type:
-
-    ```python
-    dict[str, dict[str, str]]
-    ```
-
-    Each `airflow_table` contains parameters for internal or ambient doors listed in
-    `air_leakage_records`. The `ambient_door` key may be omitted when none of the
-    records contains an `ambient_doors` key. For example:
-
-    ```python
-    airflow_tables = {
-        "internal_door": {
-            "closed_mass_flow_coeff": "1.57e-3",  # kg s-1 m-1 @ 1 Pa
-            "closed_mass_flow_exponent": "0.6",
-            "closed_discharge_coeff": "1e-12",
-            "open_discharge_coeff": "0.61",
-        },
-        "ambient_door": {
-            "closed_mass_flow_coeff": "3.25e-4",  # kg s-1 m-1 @ 1 Pa
-            "closed_mass_flow_exponent": "0.6",
-            "closed_discharge_coeff": "1e-12",
-            "open_discharge_coeff": "0.61",
-        },
-    }
-    ```
+        ```python
+        airflow_tables = {
+            "internal_door": {
+                "closed_mass_flow_coeff": "1.57e-3",  # kg s-1 m-1 @ 1 Pa
+                "closed_mass_flow_exponent": "0.6",
+                "closed_discharge_coeff": "1e-12",
+                "open_discharge_coeff": "0.61",
+            },
+            "ambient_door": {
+                "closed_mass_flow_coeff": "3.25e-4",  # kg s-1 m-1 @ 1 Pa
+                "closed_mass_flow_exponent": "0.6",
+                "closed_discharge_coeff": "1e-12",
+                "open_discharge_coeff": "0.61",
+            },
+        }
+        ```
     """
     # validate aark requirements
     aark.ep._pact.validate_ep_ver(idf)

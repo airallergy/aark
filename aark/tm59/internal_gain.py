@@ -192,43 +192,43 @@ def apply(
     -------------------
     EnergyPlus version is 24.1 or later, with no `Space` object.
 
-    Notes
-    -----
-    A key user input is `zone_maps` with the conceptual type:
+    Parameters
+    ----------
+    idf : IDF
+        IDF to receive internal gain profiles.
+    zone_maps : Sequence[RoomMap]
+        TM59 room types mapped to names of one or more `Zone` objects in `idf`. Each map
+        represents a dwelling or a collection of communal corridors. For example:
 
-    ```python
-    list[dict[str, list[str]]]
-    ```
-
-    Each item is a single `zone_map` representing either a dwelling or a collection
-    of communal corridors. Each `zone_map` key is a TM59 room type, and each value is
-    a list of zone names. An example of `zone_maps` is:
-
-    ```python
-    zone_maps = [
-        {
-            "living_kitchen": ["flat_1_living_kitchen"],
-            "double_bedroom": ["flat_1_bedroom_1", "flat_1_bedroom_2"],
-            "single_bedroom": ["flat_1_bedroom_3"],
-            "bathroom": ["flat_1_bathroom"],
-            "hall": ["flat_1_hall"],
-        },
-        {
-            "living": ["flat_2_living"],
-            "kitchen": ["flat_2_kitchen"],
-            "double_bedroom": ["flat_2_bedroom"],
-            "bathroom": ["flat_2_bathroom"],
-            "hall": ["flat_2_hall"],
-        },
-        {
-            "communal_corridor": [
-                "corridor_floor_1",
-                "corridor_floor_2",
-                "corridor_floor_3",
-            ]
-        },
-    ]
-    ```
+        ```python
+        zone_maps = [
+            {
+                "living_kitchen": ["flat_1_living_kitchen"],
+                "double_bedroom": ["flat_1_bedroom_1", "flat_1_bedroom_2"],
+                "single_bedroom": ["flat_1_bedroom_3"],
+                "bathroom": ["flat_1_bathroom"],
+                "hall": ["flat_1_hall"],
+            },
+            {
+                "living": ["flat_2_living"],
+                "kitchen": ["flat_2_kitchen"],
+                "double_bedroom": ["flat_2_bedroom"],
+                "bathroom": ["flat_2_bathroom"],
+                "hall": ["flat_2_hall"],
+            },
+            {
+                "communal_corridor": [
+                    "corridor_floor_1",
+                    "corridor_floor_2",
+                    "corridor_floor_3",
+                ]
+            },
+        ]
+        ```
+    start_month_day, end_month_day : MonthDay, optional
+        Inclusive active period as `(month, day)` pairs, defaulting to the whole year.
+        The start must not be after the end. Internal gains are zero outside this
+        period.
     """
     # validate aark requirements
     aark.ep._pact.validate_ep_ver(idf)
