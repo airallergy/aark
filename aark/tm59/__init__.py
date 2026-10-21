@@ -11,6 +11,10 @@ Nomenclature
 
 Notes
 -----
+Use Greenwich Mean Time throughout the simulation, following the profile convention in
+TM59:2017 Table 2. Disable daylight saving in the model and assess results on the same
+time basis without a seasonal clock adjustment.
+
 The following modelling assumptions are used by `aark` but not explicitly specified by
 TM59:
 
