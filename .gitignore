@@ -3,7 +3,12 @@
 
 # python
 __pycache__
-.vscode
 .ipynb_checkpoints
 .coverage
 .coverage.*
+
+# ide
+.vscode
+
+# misc
+**/.artefacts/*
