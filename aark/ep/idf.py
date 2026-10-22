@@ -19,6 +19,7 @@ _UNNAMED_CLS_NAME2SORT_FIELD_NAMES = {
     "SIZING:PLANT": ["Plant_or_Condenser_Loop_Name"],
     "ZONEHVAC:EQUIPMENTCONNECTIONS": ["Zone_Name"],
     "OUTDOORAIR:NODELIST": ["Node_or_NodeList_Name_1"],
+    "ENERGYMANAGEMENTSYSTEM:GLOBALVARIABLE": ["Erl_Variable_1_Name"],
     "OUTPUT:VARIABLE": ["Variable_Name", "Key_Value"],
     "OUTPUT:METER": ["Key_Name"],
 }
